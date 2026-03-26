@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Real-Time Sales Dashboard
 
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)
@@ -191,3 +192,7 @@ This project deliberately favors **clarity, reliability, and extensibility**:
 ---
 
 Built with care for clean architecture and real-time reliability.
+=======
+# websocket-sales-monitor
+A production-ready real-time sales dashboard built with Node.js, React, Socket.io, and Oracle Database. Features 'hydrate from history &amp; stream delta' architecture for seamless live data rendering.
+>>>>>>> 77ded2bf1f66d82bb0302a28f11b551c60bc089d
