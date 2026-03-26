@@ -58,6 +58,13 @@ It creates LIVE_ORDERS with this shape:
 
 Run this script in your target Oracle schema (for example DEMO_DASHBOARD) before starting the backend.
 
+Automatic bootstrap behavior:
+
+- On backend startup, the app now checks and creates LIVE_ORDERS automatically if it does not exist.
+- This uses the same env target resolution (ORACLE_SCHEMA and ORACLE_TABLE).
+- If the table already exists, startup continues normally.
+- Keep the SQL script for manual setup, CI/CD, and schema version control.
+
 ## Prerequisites
 
 - Node.js 20+
@@ -114,6 +121,8 @@ npm install
 3. Initialize Oracle schema.
 
 - Execute backend/database/01_init_schema.sql in your Oracle schema.
+
+  Note: This step is optional for local development if you rely on auto-create at backend startup.
 
 4. Start backend.
 

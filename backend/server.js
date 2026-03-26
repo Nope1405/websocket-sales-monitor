@@ -3,7 +3,7 @@ const http = require('http')
 const cors = require('cors')
 const dotenv = require('dotenv')
 const SocketManager = require('./src/sockets/SocketManager')
-const { initializePool, closePool } = require('./src/config/db')
+const { initializePool, ensureOrdersTableExists, closePool } = require('./src/config/db')
 
 dotenv.config()
 
@@ -42,6 +42,7 @@ async function bootstrap() {
   activeSocketManager = socketManager
 
   await initializePool()
+  await ensureOrdersTableExists()
   socketManager.initialize()
 
   server.listen(port, () => {
