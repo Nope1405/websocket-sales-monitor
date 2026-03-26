@@ -60,7 +60,7 @@ class OrderRepository extends BaseRepository {
 
     const rows = await this.execute(sql, { limit })
 
-    return (rows || []).map((row) => ({
+    const normalizedRows = (rows || []).map((row) => ({
       order_id: row.order_id,
       product: row.product,
       amount: row.amount,
@@ -69,6 +69,9 @@ class OrderRepository extends BaseRepository {
       status: row.status,
       timestamp: row.timestamp,
     }))
+
+    // Query returns newest-first, but charts hydrate correctly with oldest-first.
+    return normalizedRows.reverse()
   }
 }
 
