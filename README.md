@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Real-Time Sales Dashboard
 
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)
@@ -7,192 +6,177 @@
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-010101?logo=socket.io&logoColor=white)
 ![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)
 
-A production-minded monorepo for real-time sales monitoring, built with a clean backend architecture and a responsive frontend analytics experience.
+A production-minded monorepo for real-time sales monitoring with Oracle-backed persistence, hydrate-from-history initialization, and Socket.IO live deltas.
 
 ## Overview
 
-**Real-Time Sales Dashboard** provides live operational visibility for sales streams with a robust event pipeline and fast UI hydration.
+This dashboard solves three core real-time problems cleanly:
 
-This project solves key real-time dashboard challenges:
+- Fast first paint with historical hydration.
+- Reliable incremental updates with websocket deltas.
+- Data consistency by saving to Oracle before broadcasting new events.
 
-- **Instant first render** with historical hydration from Oracle.
-- **Continuous live updates** via Socket.IO delta events.
-- **Race-condition resilience** using the **Hydrate from History, then Stream Delta** pattern.
-- **Clean maintainable code** through Repository Pattern and custom hook composition.
-
-The result is a dashboard that starts with meaningful historical context and keeps updating in near real-time without data gaps.
+The backend follows repository-based data access and centralized connection handling, while the frontend consumes a stable socket contract for both initial snapshots and ongoing updates.
 
 ## Key Features
 
-- **Monorepo architecture** with clear separation of concerns (`/backend`, `/frontend`).
-- **Node.js + Express + Socket.IO backend** for real-time event delivery.
-- **Oracle-backed persistence** with connection pooling and repository abstraction.
-- **Repository Pattern**:
-  - `BaseRepository` centralizes transaction and connection lifecycle logic.
-  - `OrderRepository` focuses on domain SQL only.
-- **Hydrate + Delta flow**:
-  - Client receives `initial_data` snapshot on connect.
-  - Server continues broadcasting `new_order` deltas globally.
-- **React + Vite + Tailwind + Recharts frontend** with responsive, dark-themed UI.
-- **Custom Hooks composition**:
-  - `useBaseWebSocket` manages transport lifecycle.
-  - `useSalesStream` manages domain stream state.
-- **Bounded in-memory stream window** to control client memory growth.
+- Monorepo architecture with clear separation between backend and frontend.
+- Node.js + Express + Socket.IO backend.
+- Oracle Database integration via oracledb connection pool.
+- Repository pattern for database operations:
+  - BaseRepository centralizes connection and transaction lifecycle.
+  - OrderRepository focuses on LIVE_ORDERS SQL.
+- Hydrate from History, then Stream Delta pattern:
+  - initial_data sent only to the newly connected client.
+  - new_order broadcast to all connected clients.
+- Database as Code support with version-controlled schema script.
 
-## Architecture & Data Flow
+## Architecture and Data Flow
 
-### High-level Flow
+1. Backend interval generates one mock order payload.
+2. Backend writes payload to Oracle LIVE_ORDERS.
+3. If insert succeeds, backend emits new_order to all clients.
+4. When a new client connects, backend fetches latest history from Oracle.
+5. Backend reverses history into chronological order and emits initial_data only to that client.
+6. Frontend hydrates charts/tables from initial_data, then appends new_order deltas.
 
-1. Mock order is generated in backend stream loop.
-2. Order is persisted into Oracle (`LIVE_ORDERS`).
-3. Server emits `new_order` to all connected clients.
-4. On new client connection, backend fetches history and emits `initial_data` only to that socket.
-5. Frontend hydrates state from `initial_data`, then appends `new_order` deltas.
-6. UI updates KPI cards, chart, and live table.
+## Database as Code
 
-### Diagram
+The Oracle initialization script is provided at:
 
-```mermaid
-flowchart LR
-    A[Mock Generator] --> B[OrderRepository.saveOrder]
-    B --> C[(Oracle DB: LIVE_ORDERS)]
-    C --> D[OrderRepository.getHistoricalOrders]
-    D --> E[SocketManager: initial_data to new client]
-    B --> F[SocketManager: new_order to all clients]
-    E --> G[useSalesStream Hook]
-    F --> G
-    G --> H[Dashboard State]
-    H --> I[Recharts + KPI + Live Table]
-```
+- backend/database/01_init_schema.sql
+
+It creates LIVE_ORDERS with this shape:
+
+- ORDER_ID VARCHAR2(50) PRIMARY KEY
+- PRODUCT VARCHAR2(100)
+- AMOUNT NUMBER
+- QUANTITY NUMBER
+- CHANNEL VARCHAR2(50)
+- STATUS VARCHAR2(20)
+- CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+Run this script in your target Oracle schema (for example DEMO_DASHBOARD) before starting the backend.
 
 ## Prerequisites
 
-Install and configure the following before running:
-
-- **Node.js** 20+
-- **npm** (comes with Node.js)
-- **Oracle Database** (Oracle XE / Oracle DB instance)
-- **Oracle SQL Developer** (recommended for query validation and schema checks)
+- Node.js 20+
+- npm
+- Oracle Database (XE or full edition)
+- SQL Developer (recommended for schema/query validation)
 
 ## Environment Variables
 
-### Backend (`backend/.env`)
+Backend file:
+
+- backend/.env
+
+Example:
 
 ```env
 PORT=5000
 
-ORACLE_USER=your_oracle_username
+ORACLE_USER=DEMO_DASHBOARD
 ORACLE_PASSWORD=your_oracle_password
-ORACLE_CONNECTION_STRING=localhost/XEPDB1
+ORACLE_CONNECTION_STRING=localhost:1521/XEPDB1
+
+# Optional schema/table targeting for cross-schema setups
+ORACLE_SCHEMA=DEMO_DASHBOARD
+ORACLE_TABLE=LIVE_ORDERS
 ```
 
-### Frontend (`frontend/.env`)
+Frontend file:
+
+- frontend/.env
+
+Example:
 
 ```env
 VITE_SOCKET_URL=http://localhost:5000
 ```
 
-## Installation & Running
+## Install and Run
 
-### 1. Clone and enter repository
-
-```bash
-git clone <your-repo-url>
-cd Dashboard_Ver1
-```
-
-### 2. Install backend dependencies
+1. Install backend dependencies.
 
 ```bash
 cd backend
 npm install
 ```
 
-### 3. Install frontend dependencies
+2. Install frontend dependencies.
 
 ```bash
 cd ../frontend
 npm install
 ```
 
-### 4. Start backend (Terminal A)
+3. Initialize Oracle schema.
+
+- Execute backend/database/01_init_schema.sql in your Oracle schema.
+
+4. Start backend.
 
 ```bash
-cd backend
+cd ../backend
 npm run dev
 ```
 
-### 5. Start frontend (Terminal B)
+5. Start frontend.
 
 ```bash
-cd frontend
+cd ../frontend
 npm run dev
 ```
 
-### 6. Open the app
+6. Open app and verify.
 
-- Frontend: `http://localhost:5173`
-- Backend health check: `http://localhost:5000/health`
+- Frontend: http://localhost:5173
+- Health check: http://localhost:5000/health
 
-## Folder Structure
+## Verify Persistence and Hydration
+
+Use SQL Developer to confirm data is saved:
+
+```sql
+SELECT COUNT(*) AS TOTAL_ROWS FROM LIVE_ORDERS;
+
+SELECT ORDER_ID, PRODUCT, AMOUNT, QUANTITY, CHANNEL, STATUS, CREATED_AT
+FROM LIVE_ORDERS
+ORDER BY CREATED_AT DESC
+FETCH FIRST 20 ROWS ONLY;
+```
+
+Expected behavior:
+
+- Row count increases as stream runs.
+- New client receives initial_data once on connect.
+- All clients receive new_order continuously.
+
+## Folder Highlights
 
 ```text
-Dashboard_Ver1/
-|-- backend/
-|   |-- server.js
-|   |-- package.json
-|   `-- src/
-|       |-- config/
-|       |   `-- db.js
-|       |-- repositories/
-|       |   |-- BaseRepository.js
-|       |   `-- OrderRepository.js
-|       |-- services/
-|       |   `-- mockDataGenerator.js
-|       |-- sockets/
-|       |   `-- SocketManager.js
-|       `-- utils/
-|           `-- constants.js
-|
-|-- frontend/
-|   |-- package.json
-|   `-- src/
-|       |-- App.tsx
-|       |-- components/
-|       |   |-- charts/
-|       |   |-- common/
-|       |   `-- tables/
-|       |-- hooks/
-|       |   |-- useBaseWebSocket.js
-|       |   `-- useSalesStream.js
-|       `-- utils/
-|           |-- constants.js
-|           `-- formatters.ts
-|
-`-- local-embed-test/
-    |-- index.html
-    `-- server.js
+backend/
+  database/
+    01_init_schema.sql
+  src/
+    config/
+      db.js
+    repositories/
+      BaseRepository.js
+      OrderRepository.js
+    sockets/
+      SocketManager.js
+    services/
+      mockDataGenerator.js
+frontend/
+  src/
+    hooks/
+    components/
 ```
 
-## Why This Design
+## Notes
 
-This project deliberately favors **clarity, reliability, and extensibility**:
+- If Oracle returns ORA-00942, verify schema, table name, and grants.
+- For best practice, connect the app as the schema owner that owns LIVE_ORDERS.
 
-- Backend data access logic is centralized for consistency and safer Oracle lifecycle handling.
-- Frontend stream consumption is encapsulated and reusable across future dashboard pages.
-- Hydration + delta architecture enables both fast startup UX and robust real-time continuity.
-
-## Future Enhancements
-
-- Server-side KPI snapshots and analytics endpoints.
-- AuthN/AuthZ and role-based dashboard views.
-- Observability (metrics/tracing) for stream throughput and DB latency.
-- Automated tests for repository and socket stream behavior.
-
----
-
-Built with care for clean architecture and real-time reliability.
-=======
-# websocket-sales-monitor
-A production-ready real-time sales dashboard built with Node.js, React, Socket.io, and Oracle Database. Features 'hydrate from history &amp; stream delta' architecture for seamless live data rendering.
->>>>>>> 77ded2bf1f66d82bb0302a28f11b551c60bc089d
