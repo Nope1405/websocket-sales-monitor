@@ -1,0 +1,40 @@
+# ==========================
+# CHẶN THƯ VIỆN & BẢN BUILD
+# ==========================
+# Chặn thư viện của cả backend và frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Chặn thư mục build của React Vite (frontend)
+dist/
+dist-ssr/
+build/
+
+# ==========================
+# CHẶN BẢO MẬT (TUYỆT ĐỐI KHÔNG PUSH LÊN)
+# ==========================
+# File chứa mật khẩu Oracle, config kết nối DB local
+.env
+.env.*
+!.env.example 
+
+# ==========================
+# CHẶN RÁC HỆ ĐIỀU HÀNH & EDITOR
+# ==========================
+# Windows & Mac
+.DS_Store
+Thumbs.db
+
+# File cấu hình của các trình soạn thảo (VS Code, WebStorm)
+.vscode/
+.idea/
+*.suo
+*.sln
+
+# ==========================
+# CHẶN LOG FILES (Từ Winston/Pino ở Backend)
+# ==========================
+logs/
+*.log
