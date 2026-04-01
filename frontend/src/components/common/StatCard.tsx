@@ -15,10 +15,10 @@ type StatCardProps = {
  */
 function StatCard({ title, value, description, valueClassName = 'text-white' }: StatCardProps) {
   return (
-    <article className="rounded-lg border border-slate-700 bg-slate-800/95 p-5 shadow-lg shadow-black/20">
-      <p className="text-lg font-semibold text-blue-300">{title}</p>
-      <p className={`mt-4 text-3xl font-bold leading-tight md:text-4xl ${valueClassName}`}>{value}</p>
-      {description ? <p className="mt-2 text-xs text-gray-500">{description}</p> : null}
+    <article className="rounded-lg border border-slate-700 bg-slate-800/95 p-3 sm:p-4 shadow-lg shadow-black/20">
+      <p className="text-sm font-semibold text-blue-300 sm:text-base">{title}</p>
+      <p className={`mt-1 text-2xl font-bold leading-tight sm:text-3xl ${valueClassName}`}>{value}</p>
+      {description ? <p className="mt-1 text-xs text-gray-500">{description}</p> : null}
     </article>
   )
 }

@@ -35,12 +35,12 @@ function LiveOrdersTable({ orders }: LiveOrdersTableProps) {
   const newestFirstRows = [...orders].reverse()
 
   return (
-    <section className="rounded-lg border border-slate-700 bg-slate-800/95 p-4 sm:p-6">
-      <h2 className="mb-4 text-lg font-semibold text-slate-100 sm:text-xl">Live Sales Stream</h2>
+    <section className="flex flex-col flex-1 min-h-[150px] rounded-lg border border-slate-700 bg-slate-800/95 p-4 sm:p-6">
+      <h2 className="mb-4 shrink-0 text-lg font-semibold text-slate-100 sm:text-xl">Live Sales Stream</h2>
 
-      <div className="overflow-x-auto">
+      <div className="flex-1 overflow-auto min-h-0 relative">
         <table className="min-w-[920px] w-full border-separate border-spacing-0 text-left text-sm">
-          <thead>
+          <thead className="sticky top-0 bg-slate-800/95 shadow-sm z-10">
             <tr className="text-slate-300">
               {[
                 'Timestamp',
@@ -85,7 +85,7 @@ function LiveOrdersTable({ orders }: LiveOrdersTableProps) {
         </table>
       </div>
 
-      <div className="mt-5 rounded-lg border border-rose-800/60 bg-gradient-to-r from-rose-950 to-red-900/80 px-4 py-3 text-rose-100">
+      <div className="mt-4 shrink-0 rounded-lg border border-rose-800/60 bg-gradient-to-r from-rose-950 to-red-900/80 px-4 py-3 text-rose-100">
         <p className="flex items-center gap-2 text-sm font-semibold sm:text-base">
           <AlertTriangle className="h-5 w-5 text-yellow-300" />
           ⚠️ Cảnh báo : Nhiều giao dịch thất bại liên tiếp!

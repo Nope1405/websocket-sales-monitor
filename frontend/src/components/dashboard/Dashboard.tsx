@@ -34,16 +34,16 @@ function Dashboard() {
   const connectionLabel = getConnectionLabel(isConnected)
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
-        <header className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/95 px-4 py-3">
-          <h1 className="text-lg font-semibold text-white sm:text-xl">Real-Time Sales Dashboard</h1>
+    <main className="h-screen w-screen overflow-hidden bg-slate-900 text-slate-100">
+      <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-2 p-2 sm:gap-3 sm:p-3">
+        <header className="shrink-0 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/95 px-3 py-2">
+          <h1 className="text-base font-semibold text-white sm:text-lg">Real-Time Sales Dashboard</h1>
           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${connectionBadgeClassName}`}>
             {connectionLabel}
           </span>
         </header>
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="shrink-0 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Revenue"
             value={kpis.totalRevenueLabel}
@@ -64,7 +64,6 @@ function Dashboard() {
         </section>
 
         <LiveSalesChart data={chartData} />
-
         <LiveOrdersTable orders={orders} />
       </div>
     </main>
