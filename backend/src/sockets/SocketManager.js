@@ -39,7 +39,15 @@ class SocketManager {
     this.io.on(SOCKET_EVENTS.CONNECT, async (socket) => {
       console.log(`[socket] client connected: ${socket.id}`)
 
-      await this.sendInitialData(socket)
+      try {
+        // Hydrate only this newly connected client with recent historical rows.
+        const historicalData = await this.orderRepository.getHistoricalOrders(50)
+        socket.emit(SOCKET_EVENTS.INITIAL_DATA, historicalData)
+        console.log(`[socket] initial_data sent to ${socket.id} (${historicalData.length} rows)`)
+      } catch (error) {
+        console.error(`[socket] failed to load initial_data for ${socket.id}:`, error)
+        socket.emit(SOCKET_EVENTS.INITIAL_DATA, [])
+      }
 
       socket.on(SOCKET_EVENTS.DISCONNECT, (reason) => {
         console.log(`[socket] client disconnected: ${socket.id} (${reason})`)
@@ -47,25 +55,6 @@ class SocketManager {
     })
 
     this.startDeltaStream()
-  }
-
-  /**
-   * Fetches historical orders and emits only to a specific client.
-   * @param {import('socket.io').Socket} socket
-   */
-  async sendInitialData(socket) {
-    try {
-      const historyDesc = await this.orderRepository.getHistoricalOrders(50)
-
-      // DB query is DESC; chart hydration needs chronological ASC.
-      const historyChronological = [...historyDesc].reverse()
-
-      socket.emit(SOCKET_EVENTS.INITIAL_DATA, historyChronological)
-      console.log(`[socket] initial_data sent to ${socket.id} (${historyChronological.length} rows)`)
-    } catch (error) {
-      console.error(`[socket] failed to send initial_data to ${socket.id}:`, error)
-      socket.emit(SOCKET_EVENTS.INITIAL_DATA, [])
-    }
   }
 
   /**

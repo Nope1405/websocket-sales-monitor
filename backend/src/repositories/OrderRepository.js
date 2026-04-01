@@ -54,30 +54,14 @@ class OrderRepository extends BaseRepository {
   /**
    * Fetches historical rows for dashboard hydration.
    *
-   * Pulls exactly the recent 20-minute time window for initial chart hydration.
+    * Pulls recent rows in descending order with a configurable maximum count.
    * @returns {Promise<Array<{order_id: string, product: string, amount: number, quantity: number, channel: string, status: string, timestamp: string | Date}>>}
    */
-  async getHistoricalOrders() {
+  async getHistoricalOrders(limit = 50) {
     const targetTable = getOrdersTableName()
+    const sql = `SELECT ORDER_ID as "order_id", PRODUCT as "product", AMOUNT as "amount", QUANTITY as "quantity", CHANNEL as "channel", STATUS as "status", CREATED_AT as "timestamp" FROM ${targetTable} ORDER BY CREATED_AT DESC FETCH FIRST :limit ROWS ONLY`
+    const rows = await this.execute(sql, { limit })
 
-    const sql = `
-      SELECT
-        ORDER_ID as "order_id",
-        PRODUCT as "product",
-        AMOUNT as "amount",
-        QUANTITY as "quantity",
-        CHANNEL as "channel",
-        STATUS as "status",
-        CREATED_AT as "timestamp"
-      FROM ${targetTable}
-      WHERE CREATED_AT >= CURRENT_TIMESTAMP - INTERVAL '20' MINUTE
-      ORDER BY CREATED_AT DESC
-    `
-
-    const rows = await this.execute(sql)
-
-    // Descending order is efficient for recent data retrieval.
-    // The dashboard consumes chronological order for timeline rendering.
     const normalizedRows = (rows || []).map((row) => ({
       order_id: row.order_id,
       product: row.product,
@@ -88,6 +72,7 @@ class OrderRepository extends BaseRepository {
       timestamp: row.timestamp,
     }))
 
+    // Query returns newest-first, but charts hydrate correctly with oldest-first.
     return normalizedRows.reverse()
   }
 }
