@@ -15,7 +15,7 @@ export type ChartPoint = {
   revenue: number
 }
 
-type SalesTrendChartProps = {
+type LiveSalesChartProps = {
   data: ChartPoint[]
 }
 
@@ -42,31 +42,31 @@ function formatTickTime(value: number) {
 }
 
 /**
- * Renders the revenue-over-time area chart based on WebSocket-fed state.
+ * Renders a time-windowed revenue chart for live sales visibility.
+ *
+ * Why this component exists:
+ * - Chart behavior is independent from dashboard page orchestration.
+ * - Isolating chart concerns keeps the dashboard file readable.
+ * - The component can be reused in detail pages without duplicating logic.
  */
-function SalesTrendChart({ data }: SalesTrendChartProps) {
-  // Sliding window logic:
-  // 1) Anchor to latest data timestamp (fallback to now)
-  // 2) Snap the right edge to a 5-minute boundary
-  // 3) Keep a strict 20-minute viewport
-  // 4) Pre-generate ticks with one-step buffer on both sides for smooth transitions
-  const { startTime, endTime, ticks } = useMemo(() => {
-    const latestDataTs = data.length > 0 ? data[data.length - 1].ts : Date.now()
-    const end = ceilToStep(latestDataTs, TICK_INTERVAL_MS)
-    const start = end - WINDOW_MS
+function LiveSalesChart({ data }: LiveSalesChartProps) {
+  const chartWindow = useMemo(() => {
+    const latestTimestamp = data.length > 0 ? data[data.length - 1].ts : Date.now()
+    const endTime = ceilToStep(latestTimestamp, TICK_INTERVAL_MS)
+    const startTime = endTime - WINDOW_MS
 
-    const bufferedStart = floorToStep(start - TICK_INTERVAL_MS, TICK_INTERVAL_MS)
-    const bufferedEnd = ceilToStep(end + TICK_INTERVAL_MS, TICK_INTERVAL_MS)
-    const generatedTicks: number[] = []
+    const bufferedStart = floorToStep(startTime - TICK_INTERVAL_MS, TICK_INTERVAL_MS)
+    const bufferedEnd = ceilToStep(endTime + TICK_INTERVAL_MS, TICK_INTERVAL_MS)
+    const ticks: number[] = []
 
-    for (let tick = bufferedStart; tick <= bufferedEnd; tick += TICK_INTERVAL_MS) {
-      generatedTicks.push(tick)
+    for (let tickValue = bufferedStart; tickValue <= bufferedEnd; tickValue += TICK_INTERVAL_MS) {
+      ticks.push(tickValue)
     }
 
     return {
-      startTime: start,
-      endTime: end,
-      ticks: generatedTicks,
+      startTime,
+      endTime,
+      ticks,
     }
   }, [data])
 
@@ -89,8 +89,8 @@ function SalesTrendChart({ data }: SalesTrendChartProps) {
               dataKey="ts"
               type="number"
               scale="time"
-              domain={[startTime, endTime]}
-              ticks={ticks}
+              domain={[chartWindow.startTime, chartWindow.endTime]}
+              ticks={chartWindow.ticks}
               tick={{ fill: '#cbd5e1', fontSize: 18, fontWeight: 800 }}
               tickLine={false}
               axisLine={false}
@@ -111,8 +111,8 @@ function SalesTrendChart({ data }: SalesTrendChartProps) {
                 color: '#e2e8f0',
               }}
               labelFormatter={(label) => {
-                const ts = typeof label === 'number' ? label : Number(label ?? Date.now())
-                return formatTickTime(ts)
+                const timestampValue = typeof label === 'number' ? label : Number(label ?? Date.now())
+                return formatTickTime(timestampValue)
               }}
               formatter={(value) => {
                 const numericValue = typeof value === 'number' ? value : Number(value ?? 0)
@@ -135,4 +135,4 @@ function SalesTrendChart({ data }: SalesTrendChartProps) {
   )
 }
 
-export default SalesTrendChart
+export default LiveSalesChart

@@ -13,7 +13,12 @@ const { getConnection } = require('../config/db')
  */
 class BaseRepository {
   /**
-   * Executes SQL with safe connection/transaction lifecycle handling.
+   * Executes SQL with a consistent connection lifecycle.
+   *
+   * Why this abstraction exists:
+   * - Every repository operation should follow the same safety rules.
+   * - Commits and rollbacks must be centralized to prevent inconsistent behavior.
+   * - Child repositories should express business intent, not infrastructure plumbing.
    *
    * @param {string} sql Oracle SQL statement.
    * @param {Record<string, any>} binds Named bind values.
@@ -22,14 +27,13 @@ class BaseRepository {
    */
   async execute(sql, binds = {}, options = {}) {
     let connection
+    let originalError = null
     const { mutation = false, ...oracleOptions } = options
-    let originalError = null;
-    // === [CORE] CONNECTION MANAGEMENT ===
+
     try {
       connection = await getConnection()
 
-      // === [CORE] EXECUTION POLICY ===
-      // Keep writes explicit with commit/rollback and keep reads object-shaped.
+      // Keep reads object-shaped and keep transaction behavior explicit.
       const executeOptions = {
         outFormat: oracledb.OUT_FORMAT_OBJECT,
         autoCommit: false,
@@ -38,15 +42,14 @@ class BaseRepository {
 
       const result = await connection.execute(sql, binds, executeOptions)
 
-      // === [CORE] TRANSACTION COMMIT ===
       if (mutation) {
         await connection.commit()
       }
 
       return result.rows || result
     } catch (error) {
-        originalError = error
-      // === [CORE] TRANSACTION ROLLBACK ===
+      originalError = error
+
       if (connection && mutation) {
         try {
           await connection.rollback()
@@ -57,19 +60,20 @@ class BaseRepository {
 
       throw error
     } finally {
-      // === [CORE] CONNECTION RELEASE ===
       if (connection) {
-        try{
-            await connection.close()
-        } catch (closeError){
-        console.error('[repository] connection close failed:', closeError)
-        if(!originalError){
+        try {
+          await connection.close()
+        } catch (closeError) {
+          console.error('[repository] connection close failed:', closeError)
+
+          // Preserve the original SQL error when both query and close fail.
+          if (!originalError) {
             throw closeError
+          }
         }
-     }
+      }
     }
   }
-}
 }
 
 module.exports = BaseRepository

@@ -25,33 +25,37 @@ function KpiCards({
   return (
     <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <article className="rounded-lg border border-slate-700 bg-slate-800/95 p-5 shadow-lg shadow-black/20">
-        <p className="text-sm text-slate-400">Total Revenue</p>
-        <p className="mt-4 text-3xl font-bold text-emerald-400 sm:text-4xl">
-          {formatVND(totalRevenue)} <span className="text-base text-emerald-300">VND</span>
-        </p>
-        <p className="mt-2 text-xs uppercase tracking-wide text-slate-500">From Live Stream</p>
+        <p className="text-lg font-semibold text-blue-300">Total Revenue</p>
+        {/* Always show full financial value; unit can wrap when the card gets narrow. */}
+        <div className="mt-4 flex flex-wrap items-baseline gap-2">
+          <span className="break-all text-3xl font-bold leading-none text-emerald-400 md:text-4xl">
+            {formatVND(totalRevenue)}
+          </span>
+          <span className="text-lg font-semibold leading-none text-emerald-400/80 md:text-xl">VND</span>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">From Live Stream</p>
       </article>
 
       <article className="rounded-lg border border-slate-700 bg-slate-800/95 p-5 shadow-lg shadow-black/20">
-        <p className="text-sm text-slate-400">Orders Per Minute</p>
+        <p className="text-lg font-semibold text-blue-300">Orders Per Minute</p>
         <div className="mt-4 flex items-center gap-3">
           <ShoppingCart className="h-7 w-7 text-slate-200" />
-          <p className="text-4xl font-bold text-white">{ordersPerMinute}</p>
+          <p className="truncate text-3xl font-bold leading-none text-white md:text-4xl">{ordersPerMinute}</p>
         </div>
-        <p className="mt-2 text-xs uppercase tracking-wide text-slate-500">Rolling 60 Seconds</p>
+        <p className="mt-2 text-xs text-gray-500">Rolling 60 Seconds</p>
       </article>
 
       <article className="rounded-lg border border-slate-700 bg-slate-800/95 p-5 shadow-lg shadow-black/20">
-        <p className="text-sm text-slate-400">Current Users</p>
+        <p className="text-lg font-semibold text-blue-300">Current Users</p>
         <div className="mt-4 flex items-center gap-3">
           <Users className="h-7 w-7 text-amber-400" />
-          <p className="text-4xl font-bold text-white">{currentUsers}</p>
+          <p className="truncate text-3xl font-bold leading-none text-white md:text-4xl">{currentUsers}</p>
         </div>
-        <p className="mt-2 text-xs uppercase tracking-wide text-slate-500">Estimated Live Audience</p>
+        <p className="mt-2 text-xs text-gray-500">Estimated Live Audience</p>
       </article>
 
       <article className="rounded-lg border border-slate-700 bg-slate-800/95 p-5 shadow-lg shadow-black/20">
-        <p className="text-sm text-slate-400">Top Product</p>
+        <p className="text-lg font-semibold text-blue-300">Top Product</p>
         <div className="mt-4 flex items-center gap-3">
           <img
             src={PHONE_PLACEHOLDER}
@@ -60,7 +64,7 @@ function KpiCards({
           />
           <div>
             <p className="text-xl font-semibold text-white">{topProduct}</p>
-            <p className="text-sm text-slate-400">{topProductSold} Sold</p>
+            <p className="mt-2 text-xs text-gray-500">{topProductSold} Sold</p>
           </div>
         </div>
       </article>

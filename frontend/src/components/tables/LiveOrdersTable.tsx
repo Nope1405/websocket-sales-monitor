@@ -1,5 +1,5 @@
 import { AlertTriangle } from 'lucide-react'
-import type { BackendOrder } from '../../hooks/useWebSocket'
+import type { BackendOrder } from '../../hooks/useSalesStream'
 import { formatTimeLabel, formatVND } from '../../utils/formatters'
 
 type LiveOrdersTableProps = {

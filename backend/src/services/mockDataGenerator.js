@@ -8,6 +8,14 @@ const PRODUCTS = [
 ]
 
 const CHANNELS = ['Website', 'Shopee', 'Tiki', 'Facebook Shop', 'Zalo OA']
+const ORDER_ID_MIN_SUFFIX = 1000
+const ORDER_ID_SUFFIX_RANGE = 9000
+const SPIKE_ORDER_PROBABILITY = 0.2
+const REGULAR_AMOUNT_MIN = 50_000
+const REGULAR_AMOUNT_RANGE = 450_001
+const SPIKE_AMOUNT_MIN = 600_000
+const SPIKE_AMOUNT_RANGE = 1_900_001
+const SUCCESS_RATE = 0.8
 
 /**
  * Picks one random item from a list.
@@ -24,7 +32,7 @@ function randomFrom(items) {
  * @returns {string} Order ID in a human-friendly format.
  */
 function generateOrderId() {
-  const suffix = Math.floor(1000 + Math.random() * 9000)
+  const suffix = Math.floor(ORDER_ID_MIN_SUFFIX + Math.random() * ORDER_ID_SUFFIX_RANGE)
   return `ORD-${Date.now()}-${suffix}`
 }
 
@@ -34,16 +42,24 @@ function generateOrderId() {
  */
 function generateMockOrderPayload() {
   const selectedProduct = randomFrom(PRODUCTS)
-  const amountVariance = Math.floor(selectedProduct.price * (Math.random() * 0.08))
+  const isSpikeOrder = Math.random() < SPIKE_ORDER_PROBABILITY
+
+  // Keep most orders in a smaller, realistic range to avoid a perfectly linear cumulative curve.
+  const regularAmount = REGULAR_AMOUNT_MIN + Math.floor(Math.random() * REGULAR_AMOUNT_RANGE)
+
+  // Introduce occasional spikes so the area chart shows natural steps and volatility.
+  const spikeAmount = SPIKE_AMOUNT_MIN + Math.floor(Math.random() * SPIKE_AMOUNT_RANGE)
+
+  const amount = isSpikeOrder ? spikeAmount : regularAmount
 
   return {
     timestamp: new Date().toISOString(),
     order_id: generateOrderId(),
     product: selectedProduct.name,
-    amount: selectedProduct.price + amountVariance,
+    amount,
     quantity: 1,
     channel: randomFrom(CHANNELS),
-    status: Math.random() > 0.2 ? 'SUCCESS' : 'FAIL',
+    status: Math.random() < SUCCESS_RATE ? 'SUCCESS' : 'FAIL',
   }
 }
 

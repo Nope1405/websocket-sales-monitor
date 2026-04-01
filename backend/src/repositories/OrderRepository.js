@@ -1,4 +1,5 @@
 const BaseRepository = require('./BaseRepository')
+const { getOrdersTableName } = require('../config/db')
 
 /**
  * ============================================================================
@@ -15,8 +16,10 @@ class OrderRepository extends BaseRepository {
    * @param {{order_id: string, product: string, amount: number, quantity: number, channel: string, status: string, timestamp?: string}} orderData
    */
   async saveOrder(orderData) {
+    const targetTable = getOrdersTableName()
+
     const sql = `
-      INSERT INTO LIVE_ORDERS (
+      INSERT INTO ${targetTable} (
         ORDER_ID,
         PRODUCT,
         AMOUNT,
@@ -51,16 +54,31 @@ class OrderRepository extends BaseRepository {
   /**
    * Fetches historical rows for dashboard hydration.
    *
-   * IMPORTANT: SQL matches the exact statement requested.
-   * @param {number} limit
+   * Pulls exactly the recent 20-minute time window for initial chart hydration.
    * @returns {Promise<Array<{order_id: string, product: string, amount: number, quantity: number, channel: string, status: string, timestamp: string | Date}>>}
    */
-  async getHistoricalOrders(limit = 50) {
-    const sql = `SELECT ORDER_ID as "order_id", PRODUCT as "product", AMOUNT as "amount", QUANTITY as "quantity", CHANNEL as "channel", STATUS as "status", CREATED_AT as "timestamp" FROM LIVE_ORDERS ORDER BY CREATED_AT DESC FETCH FIRST :limit ROWS ONLY`
+  async getHistoricalOrders() {
+    const targetTable = getOrdersTableName()
 
-    const rows = await this.execute(sql, { limit })
+    const sql = `
+      SELECT
+        ORDER_ID as "order_id",
+        PRODUCT as "product",
+        AMOUNT as "amount",
+        QUANTITY as "quantity",
+        CHANNEL as "channel",
+        STATUS as "status",
+        CREATED_AT as "timestamp"
+      FROM ${targetTable}
+      WHERE CREATED_AT >= CURRENT_TIMESTAMP - INTERVAL '20' MINUTE
+      ORDER BY CREATED_AT DESC
+    `
 
-    return (rows || []).map((row) => ({
+    const rows = await this.execute(sql)
+
+    // Descending order is efficient for recent data retrieval.
+    // The dashboard consumes chronological order for timeline rendering.
+    const normalizedRows = (rows || []).map((row) => ({
       order_id: row.order_id,
       product: row.product,
       amount: row.amount,
@@ -69,6 +87,8 @@ class OrderRepository extends BaseRepository {
       status: row.status,
       timestamp: row.timestamp,
     }))
+
+    return normalizedRows.reverse()
   }
 }
 

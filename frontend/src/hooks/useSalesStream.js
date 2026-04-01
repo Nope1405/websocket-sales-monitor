@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import useBaseWebSocket from './useBaseWebSocket'
 import { SOCKET_EVENTS } from '../utils/constants'
 
-const MAX_ORDERS = 50
+// Keep enough points for 20-minute history (~600 points at 2s cadence) plus live deltas.
+const CHART_WINDOW_MINUTES = 20
+const STREAM_INTERVAL_SECONDS = 2
+const SAFETY_BUFFER_POINTS = 400
+const MAX_ORDERS = Math.ceil((CHART_WINDOW_MINUTES * 60) / STREAM_INTERVAL_SECONDS) + SAFETY_BUFFER_POINTS
 
 /**
  * ============================================================================
@@ -53,12 +57,17 @@ function useSalesStream(url) {
     const onInitialData = (payload) => {
       const safeRows = Array.isArray(payload) ? payload : []
 
-      // Merge delayed deltas that may arrive before hydration completes.
-      const mergedOrders = dedupeAndTrim([...safeRows, ...pendingDeltaRef.current])
+      // Snapshot-first hydration: replace current state with full 20-minute history.
+      const historySnapshot = dedupeAndTrim(safeRows)
 
       hydratedRef.current = true
-      pendingDeltaRef.current = []
-      setOrders(mergedOrders)
+      setOrders(historySnapshot)
+
+      // Re-apply any buffered deltas that arrived before hydration completed.
+      if (pendingDeltaRef.current.length > 0) {
+        setOrders((prev) => dedupeAndTrim([...prev, ...pendingDeltaRef.current]))
+        pendingDeltaRef.current = []
+      }
     }
 
     /**
