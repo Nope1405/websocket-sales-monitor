@@ -1,5 +1,10 @@
 const BaseRepository = require('./BaseRepository')
 const { getOrdersTableName } = require('../config/db')
+const {
+  parseHistoricalOptions,
+  buildHistoricalOrdersQuery,
+  normalizeHistoricalRows,
+} = require('../services/baseOrderHistory')
 
 /**
  * ============================================================================
@@ -54,26 +59,17 @@ class OrderRepository extends BaseRepository {
   /**
    * Fetches historical rows for dashboard hydration.
    *
-    * Pulls recent rows in descending order with a configurable maximum count.
+    * Pulls rows for a recent time window (default 60 minutes), oldest-first.
    * @returns {Promise<Array<{order_id: string, product: string, amount: number, quantity: number, channel: string, status: string, timestamp: string | Date}>>}
    */
-  async getHistoricalOrders(limit = 50) {
+  async getHistoricalOrders(options = {}) {
+    const { windowMinutes, maxRows } = parseHistoricalOptions(options)
+
     const targetTable = getOrdersTableName()
-    const sql = `SELECT ORDER_ID as "order_id", PRODUCT as "product", AMOUNT as "amount", QUANTITY as "quantity", CHANNEL as "channel", STATUS as "status", CREATED_AT as "timestamp" FROM ${targetTable} ORDER BY CREATED_AT DESC FETCH FIRST :limit ROWS ONLY`
-    const rows = await this.execute(sql, { limit })
+    const sql = buildHistoricalOrdersQuery(targetTable)
+    const rows = await this.execute(sql, { windowMinutes, maxRows })
 
-    const normalizedRows = (rows || []).map((row) => ({
-      order_id: row.order_id,
-      product: row.product,
-      amount: row.amount,
-      quantity: row.quantity,
-      channel: row.channel,
-      status: row.status,
-      timestamp: row.timestamp,
-    }))
-
-    // Query returns newest-first, but charts hydrate correctly with oldest-first.
-    return normalizedRows.reverse()
+    return normalizeHistoricalRows(rows)
   }
 }
 

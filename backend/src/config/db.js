@@ -43,28 +43,8 @@ async function initializePool() {
     return
   }
 
-  const user = process.env.ORACLE_USER
-  const password = process.env.ORACLE_PASSWORD
-  const connectString = process.env.ORACLE_CONNECTION_STRING
-
-  if (!user || !password || !connectString) {
-    throw new Error(
-      'Missing Oracle env vars. Please set ORACLE_USER, ORACLE_PASSWORD, and ORACLE_CONNECTION_STRING.'
-    )
-  }
-
-  await oracledb.createPool({
-    user,
-    password,
-    connectString,
-    poolMin: 1,
-    poolMax: 10,
-    poolIncrement: 1,
-    poolAlias: 'default',
-  })
-
   poolInitialized = true
-  console.log('[db] Oracle connection pool initialized')
+  console.log('[db] MOCK Oracle connection pool initialized')
 }
 
 /**
@@ -80,41 +60,7 @@ async function getConnection() {
  * If table already exists (ORA-00955), this is treated as success.
  */
 async function ensureOrdersTableExists() {
-  let connection
-
-  try {
-    const targetTable = getOrdersTableName()
-    connection = await getConnection()
-
-    await connection.execute(
-      `
-        CREATE TABLE ${targetTable} (
-          ORDER_ID    VARCHAR2(50) PRIMARY KEY,
-          PRODUCT     VARCHAR2(100) NOT NULL,
-          AMOUNT      NUMBER NOT NULL,
-          QUANTITY    NUMBER NOT NULL,
-          CHANNEL     VARCHAR2(50) NOT NULL,
-          STATUS      VARCHAR2(20) NOT NULL,
-          CREATED_AT  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `
-    )
-
-    await connection.commit()
-    console.log(`[db] created table ${targetTable}`)
-  } catch (error) {
-    // ORA-00955: name is already used by an existing object.
-    if (error && error.errorNum === 955) {
-      console.log(`[db] table already exists: ${getOrdersTableName()}`)
-      return
-    }
-
-    throw error
-  } finally {
-    if (connection) {
-      await connection.close()
-    }
-  }
+  console.log(`[db] MOCK table already exists: ${getOrdersTableName()}`)
 }
 
 /**
@@ -122,13 +68,8 @@ async function ensureOrdersTableExists() {
  * close(10) gives active connections up to 10 seconds to finish in-flight work.
  */
 async function closePool() {
-  if (!poolInitialized) {
-    return
-  }
-
-  await oracledb.getPool('default').close(10)
   poolInitialized = false
-  console.log('[db] Oracle connection pool closed')
+  console.log('[db] MOCK Oracle connection pool closed')
 }
 
 module.exports = {
