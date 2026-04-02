@@ -122,9 +122,6 @@ function LiveSalesChart({ data }: LiveSalesChartProps) {
     })
   }, [data])
 
-  // DEBUG
-  console.log("CHART DATA OVERVIEW:", detailedData.length > 0 ? detailedData[detailedData.length - 1] : "EMPTY");
-
   const chartWindow = useMemo(() => {
     const now = Date.now()
     const latestTimestamp = detailedData.length > 0 ? detailedData[detailedData.length - 1].ts : now
@@ -219,12 +216,9 @@ function LiveSalesChart({ data }: LiveSalesChartProps) {
               domain={[
                 0,
                 (dataMax: number) => {
-                  // Fallback for initial renders where dataMax might be NaN or -Infinity
-                  if (typeof dataMax !== 'number' || !isFinite(dataMax) || isNaN(dataMax)) {
-                    return 1_000_000 // Provide a safe default scale
-                  }
+                  // Add 20% headroom so new peaks do not touch the chart ceiling.
                   const safeMax = Math.max(dataMax, 0)
-                  return Math.ceil(safeMax * 1.2) || 1_000_000
+                  return Math.ceil(safeMax * 1.2)
                 },
               ]}
               tickFormatter={(value: number) => `${Math.round(value / 1_000_000)}M`}
