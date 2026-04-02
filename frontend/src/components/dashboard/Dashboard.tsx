@@ -35,16 +35,16 @@ function Dashboard() {
   const connectionLabel = getConnectionLabel(isConnected)
 
   return (
-    <main className="min-h-screen bg-[#050a16] text-slate-100">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
-        <header className="flex items-center justify-between rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] px-4 py-3">
-          <h1 className="text-lg font-semibold text-white sm:text-xl">Real-Time Sales Dashboard</h1>
+    <main className="absolute inset-0 flex flex-col overflow-hidden bg-[#050a16] text-slate-100">
+      <div className="mx-auto flex flex-1 min-h-0 w-full flex-col gap-3 p-3 sm:gap-4 sm:p-4">
+        <header className="shrink-0 flex items-center justify-between rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] px-3 py-2">
+          <h1 className="text-base font-semibold text-white sm:text-lg">Real-Time Sales Dashboard</h1>
           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${connectionBadgeClassName}`}>
             {connectionLabel}
           </span>
         </header>
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="shrink-0 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Revenue"
             value={kpis.totalRevenueLabel}

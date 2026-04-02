@@ -180,11 +180,11 @@ function LiveSalesChart({ data }: LiveSalesChartProps) {
   }, [detailedData, chartWindow.startTime, chartWindow.endTime])
 
   return (
-    <section className="rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-4 sm:p-6">
-      <h2 className="mb-4 text-center text-lg font-semibold text-slate-100 sm:text-xl">
+    <section className="flex flex-col shrink-0 h-[160px] sm:h-[180px] rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-2 sm:p-3">
+      <h2 className="mb-1 shrink-0 text-center text-sm font-semibold text-slate-100 sm:text-base">
         Sales Trend - Real-Time
       </h2>
-      <div className="h-[300px] w-full sm:h-[340px]">
+      <div className="flex-1 min-h-0 w-full">
         <ResponsiveContainer>
           <AreaChart data={detailedData} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
             <defs>

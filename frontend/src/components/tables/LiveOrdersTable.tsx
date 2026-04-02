@@ -54,24 +54,24 @@ function LiveOrdersTable({ orders }: LiveOrdersTableProps) {
   const shouldShowWarning = failedStreak >= 3
 
   return (
-    <section className="rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-4 sm:p-6">
+    <section className="flex flex-col flex-1 min-h-0 overflow-hidden rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-3 sm:p-4">
       {shouldShowWarning ? (
-        <div className="mb-5 rounded-lg border border-rose-800/60 bg-gradient-to-r from-rose-950 to-red-900/80 px-4 py-3 text-rose-100">
+        <div className="shrink-0 mb-3 rounded-lg border border-rose-800/60 bg-gradient-to-r from-rose-950 to-red-900/80 px-3 py-2 text-rose-100">
           <p className="flex items-center gap-2 text-sm font-semibold sm:text-base">
-            <AlertTriangle className="h-5 w-5 text-yellow-300" />
+            <AlertTriangle className="h-4 w-4 text-yellow-300" />
             ⚠️ Cảnh báo : Nhiều giao dịch thất bại liên tiếp! ({failedStreak} lần)
           </p>
         </div>
       ) : null}
 
-      <h2 className="mb-4 text-lg font-semibold text-slate-100 sm:text-xl">Live Sales Stream</h2>
-      <p className="mb-3 text-xs text-slate-300/80 sm:text-sm">
+      <h2 className="mb-2 shrink-0 text-base font-semibold text-slate-100 sm:text-lg">Live Sales Stream</h2>
+      <p className="mb-2 shrink-0 text-xs text-slate-300/80">
         Showing latest {MAX_VISIBLE_ROWS} orders for smoother realtime rendering.
       </p>
 
-      <div className="overflow-x-auto">
+      <div className="flex-1 overflow-auto min-h-0 relative">
         <table className="min-w-[920px] w-full border-separate border-spacing-0 text-left text-sm">
-          <thead>
+          <thead className="sticky top-0 bg-[#0f192f] shadow-sm z-10">
             <tr className="text-slate-300">
               {[
                 'Timestamp',

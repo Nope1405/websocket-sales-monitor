@@ -25,12 +25,12 @@ function StatCard({
 }: StatCardProps) {
   return (
     <article
-      className={`flex min-h-[210px] flex-col items-center justify-center rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-5 text-center shadow-lg shadow-black/20 ${cardClassName}`}
+      className={`flex shrink-0 min-h-[100px] flex-col items-center justify-center rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-3 text-center shadow-lg shadow-black/20 ${cardClassName}`}
     >
-      <p className="text-lg font-semibold text-blue-300">{title}</p>
-      <div className={`mt-4 text-3xl font-bold leading-tight md:text-4xl ${valueClassName}`}>{value}</div>
+      <p className="text-sm font-semibold text-blue-300 sm:text-base">{title}</p>
+      <div className={`mt-2 text-2xl font-bold leading-tight md:text-3xl ${valueClassName}`}>{value}</div>
       {description ? (
-        <p className="mt-4 text-sm font-semibold tracking-wide text-sky-200/90 sm:text-base">{description}</p>
+        <p className="mt-2 text-xs font-semibold tracking-wide text-sky-200/90 sm:text-sm">{description}</p>
       ) : null}
     </article>
   )
