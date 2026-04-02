@@ -1,8 +1,11 @@
+import type { ReactNode } from 'react'
+
 type StatCardProps = {
   title: string
-  value: string
+  value: ReactNode
   description?: string
   valueClassName?: string
+  cardClassName?: string
 }
 
 /**
@@ -13,12 +16,22 @@ type StatCardProps = {
  * - A shared component prevents drift in spacing, typography, and semantics.
  * - Explicit props keep intent obvious for future maintainers.
  */
-function StatCard({ title, value, description, valueClassName = 'text-white' }: StatCardProps) {
+function StatCard({
+  title,
+  value,
+  description,
+  valueClassName = 'text-white',
+  cardClassName = '',
+}: StatCardProps) {
   return (
-    <article className="rounded-lg border border-slate-700 bg-slate-800/95 p-5 shadow-lg shadow-black/20">
+    <article
+      className={`flex min-h-[210px] flex-col items-center justify-center rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-5 text-center shadow-lg shadow-black/20 ${cardClassName}`}
+    >
       <p className="text-lg font-semibold text-blue-300">{title}</p>
-      <p className={`mt-4 text-3xl font-bold leading-tight md:text-4xl ${valueClassName}`}>{value}</p>
-      {description ? <p className="mt-2 text-xs text-gray-500">{description}</p> : null}
+      <div className={`mt-4 text-3xl font-bold leading-tight md:text-4xl ${valueClassName}`}>{value}</div>
+      {description ? (
+        <p className="mt-4 text-sm font-semibold tracking-wide text-sky-200/90 sm:text-base">{description}</p>
+      ) : null}
     </article>
   )
 }

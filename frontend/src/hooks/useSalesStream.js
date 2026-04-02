@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import useBaseWebSocket from './useBaseWebSocket'
 import { SOCKET_EVENTS } from '../utils/constants'
 
-// Keep enough points for 20-minute history (~600 points at 2s cadence) plus live deltas.
-const CHART_WINDOW_MINUTES = 20
+// Keep enough points for current-day history (~43,200 points at 2s cadence) plus live deltas.
+const CHART_WINDOW_MINUTES = 24 * 60
 const STREAM_INTERVAL_SECONDS = 2
 const SAFETY_BUFFER_POINTS = 400
 const MAX_ORDERS = Math.ceil((CHART_WINDOW_MINUTES * 60) / STREAM_INTERVAL_SECONDS) + SAFETY_BUFFER_POINTS
@@ -42,8 +42,29 @@ function useSalesStream(url) {
       const keyedOrders = new Map()
 
       for (const item of items) {
-        const key = `${item.order_id}|${item.timestamp}`
-        keyedOrders.set(key, item)
+        const key = String(item.order_id || '')
+        const previous = keyedOrders.get(key)
+        const rawAmount = Number(item.amount ?? 0)
+        const nextLivestreamAmount = Math.max(0, Math.abs(rawAmount))
+
+        if (!previous) {
+          keyedOrders.set(key, {
+            ...item,
+            livestreamAmount: nextLivestreamAmount,
+          })
+          continue
+        }
+
+        const previousLivestreamAmount = Number(previous.livestreamAmount ?? Math.max(0, Math.abs(previous.amount ?? 0)))
+
+        keyedOrders.set(key, {
+          ...previous,
+          ...item,
+          // Preserve original order time so status updates do not shift historical chronology.
+          timestamp: previous.timestamp ?? item.timestamp,
+          // Livestream GMV must never decrease when an existing order changes to FAILED.
+          livestreamAmount: Math.max(previousLivestreamAmount, nextLivestreamAmount),
+        })
       }
 
       return Array.from(keyedOrders.values()).slice(-MAX_ORDERS)
@@ -57,7 +78,7 @@ function useSalesStream(url) {
     const onInitialData = (payload) => {
       const safeRows = Array.isArray(payload) ? payload : []
 
-      // Snapshot-first hydration: replace current state with full 20-minute history.
+      // Snapshot-first hydration: replace current state with current-day history buffer.
       const historySnapshot = dedupeAndTrim(safeRows)
 
       hydratedRef.current = true

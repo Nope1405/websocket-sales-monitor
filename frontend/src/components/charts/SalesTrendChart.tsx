@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { formatVND } from '../../utils/formatters'
+import { ceilToStep, formatTickTime, generateTickRange } from './baseChartTime'
 
 export type ChartPoint = {
   ts: number
@@ -24,22 +25,7 @@ const CHART_WINDOW_MINUTES = 20
 const TICK_INTERVAL_MINUTES = 5
 const WINDOW_MS = CHART_WINDOW_MINUTES * ONE_MINUTE_MS
 const TICK_INTERVAL_MS = TICK_INTERVAL_MINUTES * ONE_MINUTE_MS
-
-function floorToStep(value: number, step: number) {
-  return Math.floor(value / step) * step
-}
-
-function ceilToStep(value: number, step: number) {
-  return Math.ceil(value / step) * step
-}
-
-function formatTickTime(value: number) {
-  return new Date(value).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-}
+const X_AXIS_TICK_STYLE = { fill: '#cbd5e1', fontSize: 12, fontWeight: 600 }
 
 /**
  * Renders the revenue-over-time area chart based on WebSocket-fed state.
@@ -49,19 +35,12 @@ function SalesTrendChart({ data }: SalesTrendChartProps) {
   // 1) Anchor to latest data timestamp (fallback to now)
   // 2) Snap the right edge to a 5-minute boundary
   // 3) Keep a strict 20-minute viewport
-  // 4) Pre-generate ticks with one-step buffer on both sides for smooth transitions
+  // 4) Pre-generate ticks only inside the current viewport to avoid crowded labels
   const { startTime, endTime, ticks } = useMemo(() => {
     const latestDataTs = data.length > 0 ? data[data.length - 1].ts : Date.now()
     const end = ceilToStep(latestDataTs, TICK_INTERVAL_MS)
     const start = end - WINDOW_MS
-
-    const bufferedStart = floorToStep(start - TICK_INTERVAL_MS, TICK_INTERVAL_MS)
-    const bufferedEnd = ceilToStep(end + TICK_INTERVAL_MS, TICK_INTERVAL_MS)
-    const generatedTicks: number[] = []
-
-    for (let tick = bufferedStart; tick <= bufferedEnd; tick += TICK_INTERVAL_MS) {
-      generatedTicks.push(tick)
-    }
+    const generatedTicks = generateTickRange(start, end, TICK_INTERVAL_MS)
 
     return {
       startTime: start,
@@ -71,7 +50,7 @@ function SalesTrendChart({ data }: SalesTrendChartProps) {
   }, [data])
 
   return (
-    <section className="rounded-lg border border-slate-700 bg-slate-800/95 p-4 sm:p-6">
+    <section className="rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-4 sm:p-6">
       <h2 className="mb-4 text-center text-lg font-semibold text-slate-100 sm:text-xl">
         Sales Trend - Real-Time
       </h2>
@@ -91,10 +70,13 @@ function SalesTrendChart({ data }: SalesTrendChartProps) {
               scale="time"
               domain={[startTime, endTime]}
               ticks={ticks}
-              tick={{ fill: '#cbd5e1', fontSize: 18, fontWeight: 800 }}
+              tick={X_AXIS_TICK_STYLE}
               tickLine={false}
               axisLine={false}
-              interval={0}
+              interval="preserveStartEnd"
+              minTickGap={30}
+              tickMargin={10}
+              height={48}
               tickFormatter={formatTickTime}
             />
             <YAxis
@@ -105,8 +87,8 @@ function SalesTrendChart({ data }: SalesTrendChartProps) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#0f172a',
-                border: '1px solid #334155',
+                backgroundColor: '#0e1930',
+                border: '1px solid #2f4367',
                 borderRadius: '10px',
                 color: '#e2e8f0',
               }}

@@ -6,6 +6,8 @@ type LiveOrdersTableProps = {
   orders: BackendOrder[]
 }
 
+const MAX_VISIBLE_ROWS = 120
+
 /**
  * Counts the latest consecutive failed orders to power the alert message.
  * @param orders Newest-first order list.
@@ -28,15 +30,44 @@ function getFailedStreak(orders: BackendOrder[]): number {
 }
 
 /**
+ * Returns only the latest N rows in newest-first order without cloning full arrays.
+ * @param {BackendOrder[]} orders
+ * @param {number} limit
+ * @returns {BackendOrder[]}
+ */
+function getLatestRows(orders: BackendOrder[], limit: number): BackendOrder[] {
+  const rows: BackendOrder[] = []
+
+  for (let index = orders.length - 1; index >= 0 && rows.length < limit; index -= 1) {
+    rows.push(orders[index])
+  }
+
+  return rows
+}
+
+/**
  * Renders the real-time orders table and warning banner based on stream health.
  */
 function LiveOrdersTable({ orders }: LiveOrdersTableProps) {
   const failedStreak = getFailedStreak(orders)
-  const newestFirstRows = [...orders].reverse()
+  const newestFirstRows = getLatestRows(orders, MAX_VISIBLE_ROWS)
+  const shouldShowWarning = failedStreak >= 3
 
   return (
-    <section className="rounded-lg border border-slate-700 bg-slate-800/95 p-4 sm:p-6">
+    <section className="rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-4 sm:p-6">
+      {shouldShowWarning ? (
+        <div className="mb-5 rounded-lg border border-rose-800/60 bg-gradient-to-r from-rose-950 to-red-900/80 px-4 py-3 text-rose-100">
+          <p className="flex items-center gap-2 text-sm font-semibold sm:text-base">
+            <AlertTriangle className="h-5 w-5 text-yellow-300" />
+            ⚠️ Cảnh báo : Nhiều giao dịch thất bại liên tiếp! ({failedStreak} lần)
+          </p>
+        </div>
+      ) : null}
+
       <h2 className="mb-4 text-lg font-semibold text-slate-100 sm:text-xl">Live Sales Stream</h2>
+      <p className="mb-3 text-xs text-slate-300/80 sm:text-sm">
+        Showing latest {MAX_VISIBLE_ROWS} orders for smoother realtime rendering.
+      </p>
 
       <div className="overflow-x-auto">
         <table className="min-w-[920px] w-full border-separate border-spacing-0 text-left text-sm">
@@ -83,14 +114,6 @@ function LiveOrdersTable({ orders }: LiveOrdersTableProps) {
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="mt-5 rounded-lg border border-rose-800/60 bg-gradient-to-r from-rose-950 to-red-900/80 px-4 py-3 text-rose-100">
-        <p className="flex items-center gap-2 text-sm font-semibold sm:text-base">
-          <AlertTriangle className="h-5 w-5 text-yellow-300" />
-          ⚠️ Cảnh báo : Nhiều giao dịch thất bại liên tiếp!
-          {failedStreak >= 3 ? ` (${failedStreak} lần)` : ''}
-        </p>
       </div>
     </section>
   )

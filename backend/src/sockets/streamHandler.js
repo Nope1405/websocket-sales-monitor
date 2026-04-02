@@ -1,24 +1,22 @@
 const { generateMockOrderPayload } = require('../services/mockDataGenerator')
 const dbService = require('../services/dbService')
+const { resolveStreamInterval, resolveHistoryOptions } = require('./baseStreamConfig')
 
 /**
  * Sends historical rows to a newly connected client before live deltas arrive.
  * This enables the hydrate-then-stream pattern for chart/table rendering.
  *
  * @param {import('socket.io').Socket} socket Newly connected socket instance.
- * @param {{ limit?: number }} options Historical fetch options.
+ * @param {{ windowMinutes?: number, maxRows?: number }} options Historical fetch options.
  */
 async function sendInitialData(socket, options = {}) {
-  const limit = options.limit || 50
+  const { windowMinutes, maxRows } = resolveHistoryOptions(options)
 
   try {
-    const historicalDesc = await dbService.getHistoricalOrders(limit)
+    const historicalData = await dbService.getHistoricalOrders({ windowMinutes, maxRows })
 
-    // Query returns DESC by CREATED_AT, while chart hydration expects ASC chronology.
-    const historicalChronological = [...historicalDesc].reverse()
-
-    socket.emit('initial_data', historicalChronological)
-    console.log(`[socket] initial_data sent to ${socket.id} (${historicalChronological.length} rows)`)
+    socket.emit('initial_data', historicalData)
+    console.log(`[socket] initial_data sent to ${socket.id} (${historicalData.length} rows)`)
   } catch (error) {
     console.error(`[socket] failed to fetch initial_data for ${socket.id}:`, error)
     socket.emit('initial_data', [])
@@ -32,7 +30,7 @@ async function sendInitialData(socket, options = {}) {
  * @returns {NodeJS.Timeout} The interval handle for advanced lifecycle management.
  */
 function startOrderStream(io, options = {}) {
-  const intervalMs = options.intervalMs || 2000
+  const intervalMs = resolveStreamInterval(options)
 
   return setInterval(async () => {
     const payload = generateMockOrderPayload()

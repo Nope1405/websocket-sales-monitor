@@ -4,11 +4,13 @@ import {
   AreaChart,
   CartesianGrid,
   ResponsiveContainer,
+  Scatter,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
 import { formatVND } from '../../utils/formatters'
+import { floorToStep, formatTickTime, generateTickRange } from './baseChartTime'
 
 export type ChartPoint = {
   ts: number
@@ -19,26 +21,85 @@ type LiveSalesChartProps = {
   data: ChartPoint[]
 }
 
+type MarkerPoint = ChartPoint & {
+  __isMarker: true
+  delta: number
+}
+
+type TooltipEntry = {
+  value?: number | string
+  name?: string
+  dataKey?: string
+  payload?: {
+    __isMarker?: boolean
+    delta?: number
+    ts?: number
+    revenue?: number
+  }
+}
+
+type CustomTooltipProps = {
+  active?: boolean
+  payload?: TooltipEntry[]
+  label?: number | string
+}
+
 const ONE_MINUTE_MS = 60_000
-const CHART_WINDOW_MINUTES = 20
+const CHART_WINDOW_MINUTES = 60
 const TICK_INTERVAL_MINUTES = 5
 const WINDOW_MS = CHART_WINDOW_MINUTES * ONE_MINUTE_MS
 const TICK_INTERVAL_MS = TICK_INTERVAL_MINUTES * ONE_MINUTE_MS
+const DOT_INTERVAL_MS = 150_000
+const X_AXIS_TICK_STYLE = { fill: '#cbd5e1', fontSize: 12, fontWeight: 600 }
 
-function floorToStep(value: number, step: number) {
-  return Math.floor(value / step) * step
-}
+/**
+ * Renders exactly one revenue row in tooltip.
+ * Marker series is preferred to avoid duplicated rows from multiple series.
+ */
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (!active || !payload || payload.length === 0) {
+    return null
+  }
 
-function ceilToStep(value: number, step: number) {
-  return Math.ceil(value / step) * step
-}
+  const markerRevenueEntry = payload.find((entry) => {
+    const isMarker = Boolean(entry?.payload?.__isMarker)
+    const isRevenueKey = entry?.dataKey === 'revenue' || String(entry?.name || '').toLowerCase() === 'revenue'
+    const isRevenueValue = Number(entry?.value) === Number(entry?.payload?.revenue)
 
-function formatTickTime(value: number) {
-  return new Date(value).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
+    return isMarker && (isRevenueKey || isRevenueValue)
   })
+
+  const areaRevenueEntry = payload.find((entry) => {
+    const isRevenueKey = entry?.dataKey === 'revenue' || String(entry?.name || '').toLowerCase() === 'revenue'
+    const isRevenueValue = Number(entry?.value) === Number(entry?.payload?.revenue)
+    return isRevenueKey || isRevenueValue
+  })
+
+  const selectedEntry = markerRevenueEntry || areaRevenueEntry || payload[payload.length - 1]
+
+  if (!selectedEntry) {
+    return null
+  }
+
+  const numericValue = Number(selectedEntry.value ?? 0)
+  const deltaValue = Number(selectedEntry.payload?.delta ?? 0)
+  const deltaPrefix = deltaValue >= 0 ? '+' : ''
+  const timestampValue = typeof label === 'number' ? label : Number(label ?? Date.now())
+
+  return (
+    <div
+      style={{
+        backgroundColor: '#0e1930',
+        border: '1px solid #2f4367',
+        borderRadius: '10px',
+        color: '#e2e8f0',
+        padding: '10px 12px',
+      }}
+    >
+      <div style={{ marginBottom: '6px' }}>{formatTickTime(timestampValue)}</div>
+      <div>{`Revenue : ${formatVND(numericValue)} VND (${deltaPrefix}${formatVND(deltaValue)})`}</div>
+    </div>
+  )
 }
 
 /**
@@ -50,34 +111,82 @@ function formatTickTime(value: number) {
  * - The component can be reused in detail pages without duplicating logic.
  */
 function LiveSalesChart({ data }: LiveSalesChartProps) {
+  const detailedData = useMemo(() => {
+    return data.map((point, index) => {
+      const previousRevenue = index > 0 ? data[index - 1].revenue : point.revenue
+
+      return {
+        ...point,
+        delta: point.revenue - previousRevenue,
+      }
+    })
+  }, [data])
+
   const chartWindow = useMemo(() => {
-    const latestTimestamp = data.length > 0 ? data[data.length - 1].ts : Date.now()
-    const endTime = ceilToStep(latestTimestamp, TICK_INTERVAL_MS)
-    const startTime = endTime - WINDOW_MS
-
-    const bufferedStart = floorToStep(startTime - TICK_INTERVAL_MS, TICK_INTERVAL_MS)
-    const bufferedEnd = ceilToStep(endTime + TICK_INTERVAL_MS, TICK_INTERVAL_MS)
-    const ticks: number[] = []
-
-    for (let tickValue = bufferedStart; tickValue <= bufferedEnd; tickValue += TICK_INTERVAL_MS) {
-      ticks.push(tickValue)
-    }
+    const now = Date.now()
+    const latestTimestamp = detailedData.length > 0 ? detailedData[detailedData.length - 1].ts : now
+    const endTime = Math.min(now, latestTimestamp)
+    const endTick = floorToStep(endTime, TICK_INTERVAL_MS)
+    const startTick = endTick - WINDOW_MS
+    const ticks = generateTickRange(startTick, endTick, TICK_INTERVAL_MS)
 
     return {
-      startTime,
+      startTime: startTick,
       endTime,
       ticks,
     }
-  }, [data])
+  }, [detailedData])
+
+  const markerPoints = useMemo(() => {
+    if (detailedData.length < 2) {
+      return []
+    }
+
+    const markers: MarkerPoint[] = []
+    const markerStart = Math.ceil(chartWindow.startTime / DOT_INTERVAL_MS) * DOT_INTERVAL_MS
+    let segmentIndex = 0
+    let previousMarkerRevenue: number | null = null
+
+    for (let markerTs = markerStart; markerTs <= chartWindow.endTime; markerTs += DOT_INTERVAL_MS) {
+      while (
+        segmentIndex < detailedData.length - 2 &&
+        detailedData[segmentIndex + 1].ts < markerTs
+      ) {
+        segmentIndex += 1
+      }
+
+      const left = detailedData[segmentIndex]
+      const right = detailedData[segmentIndex + 1]
+
+      if (!left || !right) {
+        continue
+      }
+
+      if (markerTs < left.ts || markerTs > right.ts) {
+        continue
+      }
+
+      const timeRange = right.ts - left.ts
+      const ratio = timeRange === 0 ? 0 : (markerTs - left.ts) / timeRange
+      const revenue = left.revenue + (right.revenue - left.revenue) * ratio
+      const previousRevenue = previousMarkerRevenue ?? revenue
+      const delta = revenue - previousRevenue
+
+      markers.push({ ts: markerTs, revenue, delta, __isMarker: true })
+      previousMarkerRevenue = revenue
+    }
+
+    return markers
+  }, [detailedData, chartWindow.startTime, chartWindow.endTime])
 
   return (
-    <section className="rounded-lg border border-slate-700 bg-slate-800/95 p-4 sm:p-6">
+    <section className="rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-4 sm:p-6">
       <h2 className="mb-4 text-center text-lg font-semibold text-slate-100 sm:text-xl">
         Sales Trend - Real-Time
       </h2>
       <div className="h-[300px] w-full sm:h-[340px]">
         <ResponsiveContainer>
-          <AreaChart data={data} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
+          <AreaChart data={detailedData} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="salesGlow" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#4ade80" stopOpacity={0.45} />
@@ -91,43 +200,34 @@ function LiveSalesChart({ data }: LiveSalesChartProps) {
               scale="time"
               domain={[chartWindow.startTime, chartWindow.endTime]}
               ticks={chartWindow.ticks}
-              tick={{ fill: '#cbd5e1', fontSize: 18, fontWeight: 800 }}
+              tick={X_AXIS_TICK_STYLE}
               tickLine={false}
               axisLine={false}
-              interval={0}
+              interval="preserveStart"
+              minTickGap={28}
+              tickMargin={10}
+              height={48}
               tickFormatter={formatTickTime}
             />
             <YAxis
               tick={{ fill: '#cbd5e1', fontSize: 14, fontWeight: 700 }}
               tickLine={false}
               axisLine={false}
+              domain={[(dataMin: number) => Math.min(dataMin, 0), (dataMax: number) => Math.max(dataMax, 0)]}
               tickFormatter={(value: number) => `${Math.round(value / 1_000_000)}M`}
             />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: '10px',
-                color: '#e2e8f0',
-              }}
-              labelFormatter={(label) => {
-                const timestampValue = typeof label === 'number' ? label : Number(label ?? Date.now())
-                return formatTickTime(timestampValue)
-              }}
-              formatter={(value) => {
-                const numericValue = typeof value === 'number' ? value : Number(value ?? 0)
-                return [`${formatVND(numericValue)} VND`, 'Revenue']
-              }}
-            />
+            <Tooltip content={<CustomTooltip />} />
             <Area
-              type="monotone"
+              type="linear"
               dataKey="revenue"
               stroke="#4ade80"
-              strokeWidth={3}
+              strokeWidth={2.5}
               fill="url(#salesGlow)"
               dot={false}
+              isAnimationActive={false}
               activeDot={{ r: 5, stroke: '#4ade80', fill: '#052e16' }}
             />
+            <Scatter data={markerPoints} dataKey="revenue" fill="#22c55e" shape="circle" r={3} />
           </AreaChart>
         </ResponsiveContainer>
       </div>

@@ -10,12 +10,10 @@ const PRODUCTS = [
 const CHANNELS = ['Website', 'Shopee', 'Tiki', 'Facebook Shop', 'Zalo OA']
 const ORDER_ID_MIN_SUFFIX = 1000
 const ORDER_ID_SUFFIX_RANGE = 9000
-const SPIKE_ORDER_PROBABILITY = 0.2
-const REGULAR_AMOUNT_MIN = 50_000
-const REGULAR_AMOUNT_RANGE = 450_001
-const SPIKE_AMOUNT_MIN = 600_000
-const SPIKE_AMOUNT_RANGE = 1_900_001
-const SUCCESS_RATE = 0.8
+const SUCCESS_RATE = 0.65
+const PRICE_MIN_VND = 50_000
+const PRICE_MAX_VND = 1_500_000
+const PRICE_STEP_VND = 10_000
 
 /**
  * Picks one random item from a list.
@@ -37,29 +35,33 @@ function generateOrderId() {
 }
 
 /**
+ * Generates a realistic ecommerce price in VND and rounds to nearest 10,000.
+ * @returns {number}
+ */
+function generateRoundedPriceVND() {
+  const randomValue = PRICE_MIN_VND + Math.floor(Math.random() * (PRICE_MAX_VND - PRICE_MIN_VND + 1))
+  const rounded = Math.round(randomValue / PRICE_STEP_VND) * PRICE_STEP_VND
+  return Math.min(PRICE_MAX_VND, Math.max(PRICE_MIN_VND, rounded))
+}
+
+/**
  * Generates one sales payload used by the live dashboard stream.
  * @returns {{ timestamp: string, order_id: string, product: string, amount: number, quantity: number, channel: string, status: 'SUCCESS' | 'FAIL' }}
  */
 function generateMockOrderPayload() {
   const selectedProduct = randomFrom(PRODUCTS)
-  const isSpikeOrder = Math.random() < SPIKE_ORDER_PROBABILITY
-
-  // Keep most orders in a smaller, realistic range to avoid a perfectly linear cumulative curve.
-  const regularAmount = REGULAR_AMOUNT_MIN + Math.floor(Math.random() * REGULAR_AMOUNT_RANGE)
-
-  // Introduce occasional spikes so the area chart shows natural steps and volatility.
-  const spikeAmount = SPIKE_AMOUNT_MIN + Math.floor(Math.random() * SPIKE_AMOUNT_RANGE)
-
-  const amount = isSpikeOrder ? spikeAmount : regularAmount
+  const isSuccess = Math.random() < SUCCESS_RATE
+  const roundedAmount = generateRoundedPriceVND()
+  const signedAmount = isSuccess ? roundedAmount : -roundedAmount
 
   return {
     timestamp: new Date().toISOString(),
     order_id: generateOrderId(),
     product: selectedProduct.name,
-    amount,
+    amount: signedAmount,
     quantity: 1,
     channel: randomFrom(CHANNELS),
-    status: Math.random() < SUCCESS_RATE ? 'SUCCESS' : 'FAIL',
+    status: isSuccess ? 'SUCCESS' : 'FAIL',
   }
 }
 

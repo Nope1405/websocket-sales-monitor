@@ -1,5 +1,6 @@
 const { Server } = require('socket.io')
 const { sendInitialData } = require('../sockets/streamHandler')
+const { resolveHistoryOptions } = require('../sockets/baseStreamConfig')
 
 /**
  * Creates the Socket.IO server with explicit localhost CORS settings.
@@ -19,7 +20,7 @@ function createSocketServer(httpServer) {
     console.log(`[socket] client connected: ${socket.id}`)
 
     // Hydrate this specific client with historical orders before live deltas.
-    sendInitialData(socket, { limit: 50 })
+    sendInitialData(socket, resolveHistoryOptions())
 
     socket.on('disconnect', (reason) => {
       console.log(`[socket] client disconnected: ${socket.id} (${reason})`)

@@ -5,6 +5,9 @@ import type { ChartPoint } from '../components/charts/LiveSalesChart'
 
 const ONE_MINUTE_MS = 60_000
 const FIVE_MINUTES_MS = 5 * ONE_MINUTE_MS
+const CHART_WINDOW_MINUTES = 60
+const CHART_WINDOW_MS = CHART_WINDOW_MINUTES * ONE_MINUTE_MS
+const MAX_RENDER_POINTS = 120
 const MIN_CURRENT_USERS = 5
 const MAX_CURRENT_USERS = 400
 const CURRENT_USER_MULTIPLIER = 2.8
@@ -12,6 +15,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
 
 type NormalizedOrder = BackendOrder & {
   timestampMs: number
+  livestreamAmount?: number
 }
 
 type DashboardKpis = {
@@ -35,10 +39,15 @@ function normalizeOrders(rawOrders: BackendOrder[]): NormalizedOrder[] {
 
 function buildKpis(orders: NormalizedOrder[]): DashboardKpis {
   const nowMs = Date.now()
+  const startOfDayMs = new Date().setHours(0, 0, 0, 0)
 
   const totalRevenue = orders.reduce((sum, order) => {
-    if (order.status === 'SUCCESS') {
-      return sum + order.amount
+    const status = String(order.status || '').toUpperCase()
+    const isRevenueStatus = status === 'SUCCESS' || status === 'PAID'
+    const isToday = order.timestampMs >= startOfDayMs && order.timestampMs <= nowMs
+
+    if (isRevenueStatus && isToday) {
+      return sum + Math.abs(order.amount)
     }
 
     return sum
@@ -78,24 +87,89 @@ function buildKpis(orders: NormalizedOrder[]): DashboardKpis {
     ordersPerMinuteLabel: String(ordersPerMinute),
     currentUsersLabel: String(currentUsers),
     topProductLabel,
-    topProductDescription: `${topProductSoldCount} sold`,
+    topProductDescription: `${topProductSoldCount} Sold`,
   }
 }
 
 function buildChartData(orders: NormalizedOrder[]): ChartPoint[] {
   const sortedOrders = [...orders].sort((left, right) => left.timestampMs - right.timestampMs)
+  const endTime = sortedOrders.length > 0 ? sortedOrders[sortedOrders.length - 1].timestampMs : Date.now()
+  const startTime = endTime - CHART_WINDOW_MS
+  const startOfDayMs = new Date().setHours(0, 0, 0, 0)
+  const points: ChartPoint[] = []
   let runningRevenue = 0
 
-  return sortedOrders.map((order) => {
-    if (order.status === 'SUCCESS') {
-      runningRevenue += order.amount
+  // Keep chart revenue consistent with Total Revenue KPI business rule.
+  const getRevenueDelta = (order: NormalizedOrder) => {
+    const status = String(order.status || '').toUpperCase()
+    const isRevenueStatus = status === 'SUCCESS' || status === 'PAID'
+    const isToday = order.timestampMs >= startOfDayMs && order.timestampMs <= endTime
+
+    if (!isRevenueStatus || !isToday) {
+      return 0
     }
 
-    return {
-      ts: order.timestampMs,
-      revenue: runningRevenue,
+    return Math.abs(order.amount)
+  }
+
+  for (const order of sortedOrders) {
+    const revenueDelta = getRevenueDelta(order)
+
+    if (order.timestampMs < startTime) {
+      runningRevenue += revenueDelta
+      continue
     }
-  })
+
+    runningRevenue += revenueDelta
+    points.push({ ts: order.timestampMs, revenue: runningRevenue })
+  }
+
+  if (points.length === 0) {
+    return [{ ts: startTime, revenue: runningRevenue }]
+  }
+
+  if (points[0].ts > startTime) {
+    points.unshift({ ts: startTime, revenue: points[0].revenue })
+  }
+
+  if (points[points.length - 1].ts < endTime) {
+    points.push({ ts: endTime, revenue: points[points.length - 1].revenue })
+  }
+
+  if (points.length <= MAX_RENDER_POINTS) {
+    return points
+  }
+
+  const preservedIndexes = new Set<number>([0, points.length - 1])
+
+  // Always keep descending transitions so FAIL events are visible as clear drop segments.
+  for (let index = 1; index < points.length; index += 1) {
+    if (points[index].revenue < points[index - 1].revenue) {
+      preservedIndexes.add(index - 1)
+      preservedIndexes.add(index)
+    }
+  }
+
+  const nonPreservedIndexes: number[] = []
+  for (let index = 0; index < points.length; index += 1) {
+    if (!preservedIndexes.has(index)) {
+      nonPreservedIndexes.push(index)
+    }
+  }
+
+  const remainingBudget = Math.max(0, MAX_RENDER_POINTS - preservedIndexes.size)
+
+  if (remainingBudget > 0 && nonPreservedIndexes.length > 0) {
+    const stride = Math.ceil(nonPreservedIndexes.length / remainingBudget)
+
+    for (let pickIndex = 0; pickIndex < nonPreservedIndexes.length; pickIndex += stride) {
+      preservedIndexes.add(nonPreservedIndexes[pickIndex])
+    }
+  }
+
+  return Array.from(preservedIndexes)
+    .sort((left, right) => left - right)
+    .map((index) => points[index])
 }
 
 /**

@@ -1,3 +1,4 @@
+import { ShoppingCart, Users } from 'lucide-react'
 import StatCard from '../common/StatCard'
 import LiveSalesChart from '../charts/LiveSalesChart'
 import LiveOrdersTable from '../tables/LiveOrdersTable'
@@ -34,9 +35,9 @@ function Dashboard() {
   const connectionLabel = getConnectionLabel(isConnected)
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100">
+    <main className="min-h-screen bg-[#050a16] text-slate-100">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
-        <header className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/95 px-4 py-3">
+        <header className="flex items-center justify-between rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] px-4 py-3">
           <h1 className="text-lg font-semibold text-white sm:text-xl">Real-Time Sales Dashboard</h1>
           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${connectionBadgeClassName}`}>
             {connectionLabel}
@@ -47,20 +48,44 @@ function Dashboard() {
           <StatCard
             title="Total Revenue"
             value={kpis.totalRevenueLabel}
-            description="From live stream"
+            description="From Live Stream"
             valueClassName="text-emerald-400"
           />
           <StatCard
             title="Orders Per Minute"
-            value={kpis.ordersPerMinuteLabel}
-            description="Rolling 60 seconds"
+            value={
+              <div className="flex items-center justify-center gap-3">
+                <ShoppingCart className="h-9 w-9 text-slate-100" />
+                <span>{kpis.ordersPerMinuteLabel}</span>
+              </div>
+            }
+            description="Orders / Min"
+            cardClassName="border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31]"
           />
           <StatCard
             title="Current Users"
-            value={kpis.currentUsersLabel}
-            description="Estimated live audience"
+            value={
+              <div className="flex items-center justify-center gap-3">
+                <Users className="h-9 w-9 text-amber-300" />
+                <span>{kpis.currentUsersLabel}</span>
+              </div>
+            }
+            description="Current Users"
+            cardClassName="border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31]"
           />
-          <StatCard title="Top Product" value={kpis.topProductLabel} description={kpis.topProductDescription} />
+          <StatCard
+            title="Top Product"
+            value={
+              <div className="inline-flex items-center gap-3 pl-1 text-left">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-[#3a5079] bg-[#0d1830] text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  Logo
+                </div>
+                <span className="max-w-[180px] whitespace-normal break-words leading-snug">{kpis.topProductLabel}</span>
+              </div>
+            }
+            valueClassName="text-xl font-bold leading-tight text-white sm:text-2xl"
+            description={kpis.topProductDescription}
+          />
         </section>
 
         <LiveSalesChart data={chartData} />

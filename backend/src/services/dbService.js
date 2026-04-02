@@ -1,5 +1,10 @@
 const oracledb = require('oracledb')
 const { getConnection } = require('../config/db')
+const {
+  parseHistoricalOptions,
+  buildHistoricalOrdersQuery,
+  normalizeHistoricalRows,
+} = require('./baseOrderHistory')
 
 /**
  * Restricts SQL identifiers to safe Oracle-style names.
@@ -119,27 +124,21 @@ module.exports = {
  * @param {number} limit Max number of rows to fetch.
  * @returns {Promise<Array<{order_id: string, product: string, amount: number, quantity: number, channel: string, status: string, timestamp: string | Date}>>}
  */
-async function getHistoricalOrders(limit = 50) {
+async function getHistoricalOrders(options = {}) {
+  const { windowMinutes, maxRows } = parseHistoricalOptions(options)
+
   let connection
 
   try {
     connection = await getConnection()
 
     const result = await connection.execute(
-      `SELECT ORDER_ID as "order_id", PRODUCT as "product", AMOUNT as "amount", QUANTITY as "quantity", CHANNEL as "channel", STATUS as "status", CREATED_AT as "timestamp" FROM LIVE_ORDERS ORDER BY CREATED_AT DESC FETCH FIRST :limit ROWS ONLY`,
-      { limit },
+      buildHistoricalOrdersQuery('LIVE_ORDERS'),
+      { windowMinutes, maxRows },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     )
 
-    return (result.rows || []).map((row) => ({
-      order_id: row.order_id,
-      product: row.product,
-      amount: row.amount,
-      quantity: row.quantity,
-      channel: row.channel,
-      status: row.status,
-      timestamp: row.timestamp,
-    }))
+    return normalizeHistoricalRows(result.rows)
   } finally {
     if (connection) {
       await connection.close()

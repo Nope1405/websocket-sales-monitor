@@ -2,6 +2,10 @@ const { Server } = require('socket.io')
 const { SOCKET_EVENTS } = require('../utils/constants')
 const { generateMockOrderPayload } = require('../services/mockDataGenerator')
 const OrderRepository = require('../repositories/OrderRepository')
+const {
+  resolveStreamInterval,
+  resolveHistoryOptions,
+} = require('./baseStreamConfig')
 
 /**
  * ============================================================================
@@ -19,7 +23,7 @@ class SocketManager {
    * @param {{ intervalMs?: number }} options
    */
   constructor(httpServer, options = {}) {
-    this.intervalMs = options.intervalMs || 2000
+    this.intervalMs = resolveStreamInterval(options)
     this.orderRepository = new OrderRepository()
     this.streamTimer = null
 
@@ -40,8 +44,10 @@ class SocketManager {
       console.log(`[socket] client connected: ${socket.id}`)
 
       try {
-        // Hydrate only this newly connected client with recent historical rows.
-        const historicalData = await this.orderRepository.getHistoricalOrders(50)
+        const historyOptions = resolveHistoryOptions()
+
+        // Hydrate this newly connected client with persisted history from last 60 minutes.
+        const historicalData = await this.orderRepository.getHistoricalOrders(historyOptions)
         socket.emit(SOCKET_EVENTS.INITIAL_DATA, historicalData)
         console.log(`[socket] initial_data sent to ${socket.id} (${historicalData.length} rows)`)
       } catch (error) {
