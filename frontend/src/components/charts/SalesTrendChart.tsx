@@ -102,7 +102,7 @@ function SalesTrendChart({ data }: SalesTrendChartProps) {
               }}
             />
             <Area
-              type="monotone"
+              type="linear"
               dataKey="revenue"
               stroke="#4ade80"
               strokeWidth={3}

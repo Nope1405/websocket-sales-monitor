@@ -10,10 +10,22 @@ const PRODUCTS = [
 const CHANNELS = ['Website', 'Shopee', 'Tiki', 'Facebook Shop', 'Zalo OA']
 const ORDER_ID_MIN_SUFFIX = 1000
 const ORDER_ID_SUFFIX_RANGE = 9000
-const SUCCESS_RATE = 0.65
+const SUCCESS_RATE = 0.74
 const PRICE_MIN_VND = 50_000
-const PRICE_MAX_VND = 1_500_000
+const PRICE_MAX_VND = 2_500_000
 const PRICE_STEP_VND = 10_000
+const BASELINE_START_VND = 350_000
+const DRIFT_VND = 45_000
+const VOLATILITY_VND = 180_000
+const SPIKE_CHANCE = 0.15
+const SPIKE_MIN_VND = -250_000
+const SPIKE_MAX_VND = 800_000
+const SIDEWAYS_START_CHANCE = 0.16
+const SIDEWAYS_MIN_STREAK = 2
+const SIDEWAYS_MAX_STREAK = 4
+
+let baselineAmountVND = BASELINE_START_VND
+let sidewaysRemaining = 0
 
 /**
  * Picks one random item from a list.
@@ -23,6 +35,16 @@ const PRICE_STEP_VND = 10_000
  */
 function randomFrom(items) {
   return items[Math.floor(Math.random() * items.length)]
+}
+
+/**
+ * Returns a random integer in [min, max].
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
+function randomInt(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1))
 }
 
 /**
@@ -39,9 +61,32 @@ function generateOrderId() {
  * @returns {number}
  */
 function generateRoundedPriceVND() {
-  const randomValue = PRICE_MIN_VND + Math.floor(Math.random() * (PRICE_MAX_VND - PRICE_MIN_VND + 1))
-  const rounded = Math.round(randomValue / PRICE_STEP_VND) * PRICE_STEP_VND
+  const randomSwing = randomInt(-VOLATILITY_VND, VOLATILITY_VND)
+  const spike = Math.random() < SPIKE_CHANCE ? randomInt(SPIKE_MIN_VND, SPIKE_MAX_VND) : 0
+
+  baselineAmountVND += DRIFT_VND + randomSwing + spike
+  baselineAmountVND = Math.min(PRICE_MAX_VND, Math.max(PRICE_MIN_VND, baselineAmountVND))
+
+  const rounded = Math.round(baselineAmountVND / PRICE_STEP_VND) * PRICE_STEP_VND
   return Math.min(PRICE_MAX_VND, Math.max(PRICE_MIN_VND, rounded))
+}
+
+/**
+ * Creates occasional FAIL streaks so cumulative revenue has more horizontal segments.
+ * @returns {boolean}
+ */
+function shouldGenerateSuccess() {
+  if (sidewaysRemaining > 0) {
+    sidewaysRemaining -= 1
+    return false
+  }
+
+  if (Math.random() < SIDEWAYS_START_CHANCE) {
+    sidewaysRemaining = randomInt(SIDEWAYS_MIN_STREAK, SIDEWAYS_MAX_STREAK) - 1
+    return false
+  }
+
+  return Math.random() < SUCCESS_RATE
 }
 
 /**
@@ -50,7 +95,7 @@ function generateRoundedPriceVND() {
  */
 function generateMockOrderPayload() {
   const selectedProduct = randomFrom(PRODUCTS)
-  const isSuccess = Math.random() < SUCCESS_RATE
+  const isSuccess = shouldGenerateSuccess()
   const roundedAmount = generateRoundedPriceVND()
   const signedAmount = isSuccess ? roundedAmount : -roundedAmount
 

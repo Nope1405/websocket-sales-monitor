@@ -213,7 +213,14 @@ function LiveSalesChart({ data }: LiveSalesChartProps) {
               tick={{ fill: '#cbd5e1', fontSize: 14, fontWeight: 700 }}
               tickLine={false}
               axisLine={false}
-              domain={[(dataMin: number) => Math.min(dataMin, 0), (dataMax: number) => Math.max(dataMax, 0)]}
+              domain={[
+                0,
+                (dataMax: number) => {
+                  // Add 20% headroom so new peaks do not touch the chart ceiling.
+                  const safeMax = Math.max(dataMax, 0)
+                  return Math.ceil(safeMax * 1.2)
+                },
+              ]}
               tickFormatter={(value: number) => `${Math.round(value / 1_000_000)}M`}
             />
             <Tooltip content={<CustomTooltip />} />
