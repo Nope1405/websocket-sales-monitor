@@ -1,32 +1,36 @@
 const PRODUCTS = [
-  { name: 'iPhone 15', price: 25_000_000 },
-  { name: 'Laptop Dell XPS 13', price: 32_000_000 },
-  { name: 'MacBook Air M3', price: 34_500_000 },
-  { name: 'Samsung S24 Ultra', price: 29_900_000 },
-  { name: 'iPad Pro M4', price: 27_000_000 },
-  { name: 'AirPods Pro 2', price: 5_800_000 },
+  { name: 'AirPods Pro 2', tier: 'LOW' },
+  { name: 'Phone Case', tier: 'LOW' },
+  { name: 'Bluetooth Speaker Mini', tier: 'LOW' },
+  { name: 'Samsung S24 Ultra', tier: 'HIGH' },
+  { name: 'MacBook Air M3', tier: 'HIGH' },
+  { name: 'Laptop Dell XPS 13', tier: 'HIGH' },
 ]
 
 const CHANNELS = ['Website', 'Shopee', 'Tiki', 'Facebook Shop', 'Zalo OA']
 const ORDER_ID_MIN_SUFFIX = 1000
 const ORDER_ID_SUFFIX_RANGE = 9000
-const SUCCESS_RATE = 0.74
-const PRICE_MIN_VND = 50_000
-const PRICE_MAX_VND = 2_500_000
+const STREAM_INTERVAL_MS = 2000
+const SUCCESS_PHASE_MIN_MS = 2 * 60 * 1000
+const SUCCESS_PHASE_MAX_MS = 3 * 60 * 1000
+const FAIL_PHASE_MIN_MS = 1 * 60 * 1000
+const FAIL_PHASE_MAX_MS = 2 * 60 * 1000
+const LOW_AMOUNT_MIN_VND = 80_000
+const LOW_AMOUNT_MAX_VND = 900_000
+const HIGH_AMOUNT_MIN_VND = 6_000_000
+const HIGH_AMOUNT_MAX_VND = 35_000_000
+const SUCCESS_HIGH_TIER_RATE = 0.88
+const FAIL_PHASE_LOW_SUCCESS_RATE = 0.3
+const FAIL_PHASE_LOW_SUCCESS_MAX_VND = 250_000
 const PRICE_STEP_VND = 10_000
-const BASELINE_START_VND = 350_000
-const DRIFT_VND = 45_000
-const VOLATILITY_VND = 180_000
-const SPIKE_CHANCE = 0.15
-const SPIKE_MIN_VND = -250_000
-const SPIKE_MAX_VND = 800_000
-const SIDEWAYS_START_CHANCE = 0.16
-const SIDEWAYS_MIN_STREAK = 2
-const SIDEWAYS_MAX_STREAK = 4
 
-let baselineAmountVND = BASELINE_START_VND
-let sidewaysRemaining = 0
+const SUCCESS_PHASE_MIN_TICKS = Math.floor(SUCCESS_PHASE_MIN_MS / STREAM_INTERVAL_MS)
+const SUCCESS_PHASE_MAX_TICKS = Math.floor(SUCCESS_PHASE_MAX_MS / STREAM_INTERVAL_MS)
+const FAIL_PHASE_MIN_TICKS = Math.floor(FAIL_PHASE_MIN_MS / STREAM_INTERVAL_MS)
+const FAIL_PHASE_MAX_TICKS = Math.floor(FAIL_PHASE_MAX_MS / STREAM_INTERVAL_MS)
 
+let currentPhase = 'SUCCESS'
+let phaseTicksRemaining = randomInt(SUCCESS_PHASE_MIN_TICKS, SUCCESS_PHASE_MAX_TICKS)
 /**
  * Picks one random item from a list.
  * @template T
@@ -60,33 +64,66 @@ function generateOrderId() {
  * Generates a realistic ecommerce price in VND and rounds to nearest 10,000.
  * @returns {number}
  */
-function generateRoundedPriceVND() {
-  const randomSwing = randomInt(-VOLATILITY_VND, VOLATILITY_VND)
-  const spike = Math.random() < SPIKE_CHANCE ? randomInt(SPIKE_MIN_VND, SPIKE_MAX_VND) : 0
+function generateRoundedPriceVND(tier) {
+  const minAmount = tier === 'HIGH' ? HIGH_AMOUNT_MIN_VND : LOW_AMOUNT_MIN_VND
+  const maxAmount = tier === 'HIGH' ? HIGH_AMOUNT_MAX_VND : LOW_AMOUNT_MAX_VND
+  const randomValue = randomInt(minAmount, maxAmount)
 
-  baselineAmountVND += DRIFT_VND + randomSwing + spike
-  baselineAmountVND = Math.min(PRICE_MAX_VND, Math.max(PRICE_MIN_VND, baselineAmountVND))
-
-  const rounded = Math.round(baselineAmountVND / PRICE_STEP_VND) * PRICE_STEP_VND
-  return Math.min(PRICE_MAX_VND, Math.max(PRICE_MIN_VND, rounded))
+  return Math.round(randomValue / PRICE_STEP_VND) * PRICE_STEP_VND
 }
 
 /**
- * Creates occasional FAIL streaks so cumulative revenue has more horizontal segments.
- * @returns {boolean}
+ * Generates a tiny success amount used inside FAIL phase.
+ * @returns {number}
  */
-function shouldGenerateSuccess() {
-  if (sidewaysRemaining > 0) {
-    sidewaysRemaining -= 1
-    return false
+function generateFailPhaseSuccessAmountVND() {
+  const randomValue = randomInt(LOW_AMOUNT_MIN_VND, FAIL_PHASE_LOW_SUCCESS_MAX_VND)
+  return Math.round(randomValue / PRICE_STEP_VND) * PRICE_STEP_VND
+}
+
+/**
+ * Returns the stream phase for current tick and updates phase counters.
+ * @returns {'SUCCESS' | 'FAIL'}
+ */
+function nextPhase() {
+  const phase = currentPhase
+
+  phaseTicksRemaining -= 1
+
+  if (phaseTicksRemaining <= 0) {
+    if (currentPhase === 'SUCCESS') {
+      currentPhase = 'FAIL'
+      phaseTicksRemaining = randomInt(FAIL_PHASE_MIN_TICKS, FAIL_PHASE_MAX_TICKS)
+    } else {
+      currentPhase = 'SUCCESS'
+      phaseTicksRemaining = randomInt(SUCCESS_PHASE_MIN_TICKS, SUCCESS_PHASE_MAX_TICKS)
+    }
   }
 
-  if (Math.random() < SIDEWAYS_START_CHANCE) {
-    sidewaysRemaining = randomInt(SIDEWAYS_MIN_STREAK, SIDEWAYS_MAX_STREAK) - 1
-    return false
+  return phase
+}
+
+/**
+ * Picks mostly high tier in SUCCESS phase and rarely inserts low tier.
+ * @returns {'HIGH' | 'LOW'}
+ */
+function pickTierForSuccess() {
+  return Math.random() < SUCCESS_HIGH_TIER_RATE ? 'HIGH' : 'LOW'
+}
+
+/**
+ * Picks a product name from the requested tier.
+ * @param {'HIGH' | 'LOW'} tier
+ * @returns {{ name: string, tier: 'HIGH' | 'LOW' }}
+ */
+function pickProductByTier(tier) {
+  const candidates = PRODUCTS.filter((product) => product.tier === tier)
+
+  if (candidates.length === 0) {
+    return randomFrom(PRODUCTS)
   }
 
-  return Math.random() < SUCCESS_RATE
+  return randomFrom(candidates)
 }
 
 /**
@@ -94,16 +131,22 @@ function shouldGenerateSuccess() {
  * @returns {{ timestamp: string, order_id: string, product: string, amount: number, quantity: number, channel: string, status: 'SUCCESS' | 'FAIL' }}
  */
 function generateMockOrderPayload() {
-  const selectedProduct = randomFrom(PRODUCTS)
-  const isSuccess = shouldGenerateSuccess()
-  const roundedAmount = generateRoundedPriceVND()
-  const signedAmount = isSuccess ? roundedAmount : -roundedAmount
+  const phase = nextPhase()
+  const isFailPhaseLowSuccess = phase === 'FAIL' && Math.random() < FAIL_PHASE_LOW_SUCCESS_RATE
+  const isSuccess = phase === 'SUCCESS' || isFailPhaseLowSuccess
+  const selectedTier = phase === 'SUCCESS' ? pickTierForSuccess() : 'LOW'
+  const selectedProduct = pickProductByTier(selectedTier)
+  const amount = isSuccess
+    ? isFailPhaseLowSuccess
+      ? generateFailPhaseSuccessAmountVND()
+      : generateRoundedPriceVND(selectedTier)
+    : 0
 
   return {
     timestamp: new Date().toISOString(),
     order_id: generateOrderId(),
     product: selectedProduct.name,
-    amount: signedAmount,
+    amount,
     quantity: 1,
     channel: randomFrom(CHANNELS),
     status: isSuccess ? 'SUCCESS' : 'FAIL',

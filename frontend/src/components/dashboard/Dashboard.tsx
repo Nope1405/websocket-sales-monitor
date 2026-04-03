@@ -40,7 +40,7 @@ function Dashboard() {
         <header className="flex items-center justify-between rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] px-4 py-3">
           <h1 className="text-lg font-semibold text-white sm:text-xl">Real-Time Sales Dashboard</h1>
           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${connectionBadgeClassName}`}>
-            {connectionLabel}
+            {connectionLabel} 
           </span>
         </header>
 

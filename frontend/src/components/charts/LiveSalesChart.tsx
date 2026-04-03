@@ -218,7 +218,7 @@ function LiveSalesChart({ data }: LiveSalesChartProps) {
                 (dataMax: number) => {
                   // Add 20% headroom so new peaks do not touch the chart ceiling.
                   const safeMax = Math.max(dataMax, 0)
-                  return Math.ceil(safeMax * 1.2)
+                  return Math.ceil(safeMax * 1.3)
                 },
               ]}
               tickFormatter={(value: number) => `${Math.round(value / 1_000_000)}M`}
