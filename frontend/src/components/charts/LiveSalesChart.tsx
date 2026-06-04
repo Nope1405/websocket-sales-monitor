@@ -51,6 +51,10 @@ const WINDOW_MS = CHART_WINDOW_MINUTES * ONE_MINUTE_MS
 const TICK_INTERVAL_MS = TICK_INTERVAL_MINUTES * ONE_MINUTE_MS
 const DOT_INTERVAL_MS = 150_000
 const X_AXIS_TICK_STYLE = { fill: '#cbd5e1', fontSize: 12, fontWeight: 600 }
+const MILLION = 1_000_000
+const DEFAULT_STEP_M = 100
+const MIN_AXIS_MAX_M = 100
+const STEP_CANDIDATES_M = [100, 200, 500, 1000, 2000]
 
 /**
  * Renders exactly one revenue row in tooltip.
@@ -179,6 +183,32 @@ function LiveSalesChart({ data }: LiveSalesChartProps) {
     return markers
   }, [detailedData, chartWindow.startTime, chartWindow.endTime])
 
+  const yAxisConfig = useMemo(() => {
+    const maxRevenue = detailedData.reduce((maxValue, point) => {
+      return Math.max(maxValue, Number(point.revenue ?? 0))
+    }, 0)
+
+    const maxRevenueM = Math.max(0, Math.ceil(maxRevenue / MILLION))
+
+    const selectedStepM = STEP_CANDIDATES_M.find((stepM) => {
+      const axisMaxM = Math.max(MIN_AXIS_MAX_M, Math.ceil(maxRevenueM / stepM) * stepM)
+      return axisMaxM / stepM <= 6
+    }) || DEFAULT_STEP_M
+
+    const axisMaxM = Math.max(MIN_AXIS_MAX_M, Math.ceil(maxRevenueM / selectedStepM) * selectedStepM)
+    const axisMaxValue = axisMaxM * MILLION
+    const ticks: number[] = []
+
+    for (let valueM = 0; valueM <= axisMaxM; valueM += selectedStepM) {
+      ticks.push(valueM * MILLION)
+    }
+
+    return {
+      axisMaxValue,
+      ticks,
+    }
+  }, [detailedData])
+
   return (
     <section className="rounded-lg border border-[#2a3d63] bg-gradient-to-b from-[#1a2b4a] to-[#101a31] p-4 sm:p-6">
       <h2 className="mb-4 text-center text-lg font-semibold text-slate-100 sm:text-xl">
@@ -213,15 +243,9 @@ function LiveSalesChart({ data }: LiveSalesChartProps) {
               tick={{ fill: '#cbd5e1', fontSize: 14, fontWeight: 700 }}
               tickLine={false}
               axisLine={false}
-              domain={[
-                0,
-                (dataMax: number) => {
-                  // Add 20% headroom so new peaks do not touch the chart ceiling.
-                  const safeMax = Math.max(dataMax, 0)
-                  return Math.ceil(safeMax * 1.3)
-                },
-              ]}
-              tickFormatter={(value: number) => `${Math.round(value / 1_000_000)}M`}
+              domain={[0, yAxisConfig.axisMaxValue]}
+              ticks={yAxisConfig.ticks}
+              tickFormatter={(value: number) => `${Math.round(value / MILLION)}M`}
             />
             <Tooltip content={<CustomTooltip />} />
             <Area

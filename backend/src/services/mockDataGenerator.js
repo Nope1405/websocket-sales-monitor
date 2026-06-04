@@ -10,27 +10,13 @@ const PRODUCTS = [
 const CHANNELS = ['Website', 'Shopee', 'Tiki', 'Facebook Shop', 'Zalo OA']
 const ORDER_ID_MIN_SUFFIX = 1000
 const ORDER_ID_SUFFIX_RANGE = 9000
-const STREAM_INTERVAL_MS = 2000
-const SUCCESS_PHASE_MIN_MS = 2 * 60 * 1000
-const SUCCESS_PHASE_MAX_MS = 3 * 60 * 1000
-const FAIL_PHASE_MIN_MS = 1 * 60 * 1000
-const FAIL_PHASE_MAX_MS = 2 * 60 * 1000
-const LOW_AMOUNT_MIN_VND = 80_000
-const LOW_AMOUNT_MAX_VND = 900_000
-const HIGH_AMOUNT_MIN_VND = 6_000_000
-const HIGH_AMOUNT_MAX_VND = 35_000_000
-const SUCCESS_HIGH_TIER_RATE = 0.88
-const FAIL_PHASE_LOW_SUCCESS_RATE = 0.3
-const FAIL_PHASE_LOW_SUCCESS_MAX_VND = 250_000
+const LOW_AMOUNT_MIN_VND = 50_000
+const LOW_AMOUNT_MAX_VND = 500_000
+const HIGH_AMOUNT_MIN_VND = 2_000_000
+const HIGH_AMOUNT_MAX_VND = 15_000_000
+const SUCCESS_HIGH_TIER_RATE = 0.5
+const FAIL_RATE = 0.5
 const PRICE_STEP_VND = 10_000
-
-const SUCCESS_PHASE_MIN_TICKS = Math.floor(SUCCESS_PHASE_MIN_MS / STREAM_INTERVAL_MS)
-const SUCCESS_PHASE_MAX_TICKS = Math.floor(SUCCESS_PHASE_MAX_MS / STREAM_INTERVAL_MS)
-const FAIL_PHASE_MIN_TICKS = Math.floor(FAIL_PHASE_MIN_MS / STREAM_INTERVAL_MS)
-const FAIL_PHASE_MAX_TICKS = Math.floor(FAIL_PHASE_MAX_MS / STREAM_INTERVAL_MS)
-
-let currentPhase = 'SUCCESS'
-let phaseTicksRemaining = randomInt(SUCCESS_PHASE_MIN_TICKS, SUCCESS_PHASE_MAX_TICKS)
 /**
  * Picks one random item from a list.
  * @template T
@@ -72,36 +58,6 @@ function generateRoundedPriceVND(tier) {
   return Math.round(randomValue / PRICE_STEP_VND) * PRICE_STEP_VND
 }
 
-/**
- * Generates a tiny success amount used inside FAIL phase.
- * @returns {number}
- */
-function generateFailPhaseSuccessAmountVND() {
-  const randomValue = randomInt(LOW_AMOUNT_MIN_VND, FAIL_PHASE_LOW_SUCCESS_MAX_VND)
-  return Math.round(randomValue / PRICE_STEP_VND) * PRICE_STEP_VND
-}
-
-/**
- * Returns the stream phase for current tick and updates phase counters.
- * @returns {'SUCCESS' | 'FAIL'}
- */
-function nextPhase() {
-  const phase = currentPhase
-
-  phaseTicksRemaining -= 1
-
-  if (phaseTicksRemaining <= 0) {
-    if (currentPhase === 'SUCCESS') {
-      currentPhase = 'FAIL'
-      phaseTicksRemaining = randomInt(FAIL_PHASE_MIN_TICKS, FAIL_PHASE_MAX_TICKS)
-    } else {
-      currentPhase = 'SUCCESS'
-      phaseTicksRemaining = randomInt(SUCCESS_PHASE_MIN_TICKS, SUCCESS_PHASE_MAX_TICKS)
-    }
-  }
-
-  return phase
-}
 
 /**
  * Picks mostly high tier in SUCCESS phase and rarely inserts low tier.
@@ -131,16 +87,10 @@ function pickProductByTier(tier) {
  * @returns {{ timestamp: string, order_id: string, product: string, amount: number, quantity: number, channel: string, status: 'SUCCESS' | 'FAIL' }}
  */
 function generateMockOrderPayload() {
-  const phase = nextPhase()
-  const isFailPhaseLowSuccess = phase === 'FAIL' && Math.random() < FAIL_PHASE_LOW_SUCCESS_RATE
-  const isSuccess = phase === 'SUCCESS' || isFailPhaseLowSuccess
-  const selectedTier = phase === 'SUCCESS' ? pickTierForSuccess() : 'LOW'
+  const isSuccess = Math.random() >= FAIL_RATE
+  const selectedTier = isSuccess ? pickTierForSuccess() : 'LOW'
   const selectedProduct = pickProductByTier(selectedTier)
-  const amount = isSuccess
-    ? isFailPhaseLowSuccess
-      ? generateFailPhaseSuccessAmountVND()
-      : generateRoundedPriceVND(selectedTier)
-    : 0
+  const amount = isSuccess ? generateRoundedPriceVND(selectedTier) : 0
 
   return {
     timestamp: new Date().toISOString(),
